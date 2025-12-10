@@ -132,6 +132,33 @@ def planner_agent(state: GenesisState):
 
 # --- 6. Permission Agent (HUMAN-IN-THE-LOOP GATE) ---
 # ... (rest of the code remains the same as before)
+def permission_router(state: GenesisState):
+    """
+    Checks if the tool call requires permission and handles the Human-in-the-Loop gate.
+    """
+    
+    # 1. CHECK for Pending Permission (i.e., user is replying to the permission request)
+    if state.get("permission_status") == "pending":
+        last_message = state["messages"][-1].content.lower()
+        if "yes" in last_message or "ok" in last_message or "allow" in last_message:
+            return {"permission_status": "granted", "messages": [SystemMessage(content="Permission granted. Continuing plan.")]}
+        else:
+            return {"permission_status": "denied", 
+                    "messages": [SystemMessage(content="Action cancelled by user permission.")]}
+
+    # 2. CHECK for New Sensitive Tool Call (Planner just returned a tool call)
+    last_message = state["messages"][-1]
+    
+    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        for tool_call in last_message.tool_calls:
+            if tool_call.get('name') in SENSITIVE_TOOLS: 
+                app_name = tool_call.get('name').split(':')[0].replace('_', ' ').title()
+                return {"permission_status": "pending", 
+                        "messages": [SystemMessage(content=f"🔒 Genesis needs permission to use your **{app_name}** app. Please type **'OK'** to proceed or **'No'** to cancel.")]}
+        
+        return {"permission_status": "granted"}
+    
+    return {"permission_status": "denied"}
 
 # --- 7. Build Graph and Routing ---
 workflow = StateGraph(GenesisState)
