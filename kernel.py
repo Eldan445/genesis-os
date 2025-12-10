@@ -63,7 +63,7 @@ def setup_genesis_engine():
     # --- CRITICAL FIX: Swap to the more reliable 70B model for tool calling stability ---
     llm_client = ChatGroq(
         groq_api_key=groq_api_key , # <-- Passes key explicitly (optional, but robust)
-        model="mixtral-8x7b-32768", # <-- RENAMED PARAMETER TO 'model' (Previously MODEL_NAME)
+        model="llama-3.1-8b-instant", # <-- RENAMED PARAMETER TO 'model' (Previously MODEL_NAME)
         temperature=0.1 
     )
     
