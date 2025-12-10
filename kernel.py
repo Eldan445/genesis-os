@@ -63,7 +63,6 @@ def setup_genesis_engine():
     
     # --- CRITICAL FIX: Use the stable, production Llama 3.1 8B model ---
     llm_client = ChatGroq(
-        # The llama-3.1-8b-instant model is a Groq production model that supports tool use.
         model="llama-3.1-8b-instant",
         temperature=0
     )
@@ -95,8 +94,8 @@ def planner_agent(state: GenesisState):
     except Exception:
         context = "Memory ready."
     
-    # --- CRITICAL FIX FOR RECURSION ERROR (System Prompt Rule) ---
-    system_prompt = (
+    # --- System Prompt Definition ---
+    system_prompt_content = (
         "You are Genesis, the first AGI and a voice-first OS Kernel. "
         "Plan and execute the user's goal step-by-step using tools. "
         "**CRITICAL RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST terminate the cycle by providing the final answer as plain text with NO tool call.** " 
@@ -105,8 +104,16 @@ def planner_agent(state: GenesisState):
         "MEMORY CONTEXT: {context}"
     )
     
-    # Prepend the system prompt to the filtered history
-    full_messages = [SystemMessage(content=system_prompt.format(context=context))] + filtered_messages
+    full_messages = []
+    
+    # --- CRITICAL FIX FOR BAD REQUEST ERROR (System Message Injection) ---
+    # Only inject the SystemMessage if the current history does not contain one yet.
+    if not any(isinstance(m, SystemMessage) for m in filtered_messages):
+        # Inject the SystemMessage as the very first message
+        full_messages.append(SystemMessage(content=system_prompt_content.format(context=context)))
+    
+    # Add the rest of the conversation history
+    full_messages.extend(filtered_messages)
     
     if not any(isinstance(m, HumanMessage) for m in full_messages):
         full_messages.append(HumanMessage(content="System initialized. Waiting for command."))
