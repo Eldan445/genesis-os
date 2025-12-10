@@ -1,0 +1,8 @@
+streamlit
+langchain-google-genai
+langgraph
+langchain
+python-dotenv
+duckduckgo-search
+gtts
+streamlit-mic-recorder
