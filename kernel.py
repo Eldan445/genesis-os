@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from typing import TypedDict, Sequence
 # Import Groq instead of Google Generative AI
-from langchain_groq import ChatGroq # <--- NEW IMPORT
+from langchain_groq import ChatGroq 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
@@ -63,10 +63,10 @@ def setup_genesis_engine():
     
     memory_bus = UniversalMemoryBus()
     
-    # --- CRITICAL CHANGE: Use ChatGroq ---
-    # We use a powerful and fast Mixtral model from Groq
+    # --- CRITICAL CHANGE: Use Llama 3.1 8B Instant for stable tool use ---
     llm_client = ChatGroq(
-        model="mixtral-8x7b-32768", # Excellent for agents and tool-use
+        # Switched from deprecated mixtral to llama-3.1-8b-instant
+        model="llama-3.1-8b-instant", # <--- UPDATED MODEL ID
         temperature=0
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
