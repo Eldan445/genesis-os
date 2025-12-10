@@ -64,7 +64,7 @@ def setup_genesis_engine():
     # --- CRITICAL FIX: Swap to the more reliable 70B model for tool calling stability ---
     llm_client = ChatGroq(
         # Changed from llama-3.1-8b-instant to llama-3.1-70b-versatile
-        model="llama-3.3-80b-versatile", # <--- MODEL SWAP
+       MODEL_NAME = "mixtral-8x7b-32768" , # <--- MODEL SWAP
         temperature=0.1 
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
