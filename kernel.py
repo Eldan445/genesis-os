@@ -98,12 +98,11 @@ def planner_agent(state: GenesisState):
     system_prompt_content = (
         "You are Genesis, the first AGI and a voice-first OS Kernel. "
         "Plan and execute the user's goal step-by-step using tools. "
-        "**CRITICAL RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST terminate the cycle by providing the final answer as plain text with NO tool call.** " 
+        "**CRITICAL TERMINATION RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST respond with a concise, conversational answer as plain text and MUST NOT call any further tools.** " 
         "Keep your final responses extremely concise and conversational, suitable for a voice interface. "
         "DO NOT use markdown formatting (like **bold** or lists) unless absolutely necessary for clarity. "
         "MEMORY CONTEXT: {context}"
     )
-    
     full_messages = []
     
     # --- CRITICAL FIX FOR BAD REQUEST ERROR (System Message Injection) ---
@@ -168,6 +167,7 @@ workflow.add_node("permission_gate", permission_router)
 workflow.set_entry_point("planner")
 
 # Routing function handles where to go next based on planner and permission status
+# kernel.py (route_to_execution)
 def route_to_execution(state: GenesisState):
     status = state.get("permission_status")
     
@@ -178,7 +178,7 @@ def route_to_execution(state: GenesisState):
     if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
         return "permission_gate" 
         
-    return END
+    return END # <--- This is where a final answer should land
 
 # --- Define Edges ---
 
