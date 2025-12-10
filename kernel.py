@@ -61,10 +61,10 @@ def setup_genesis_engine():
     
     memory_bus = UniversalMemoryBus()
     
-    # --- CRITICAL FIX: Use the stable, production Llama 3.1 8B model ---
+    # --- CRITICAL FIX: Raise temperature slightly for better JSON generation ---
     llm_client = ChatGroq(
         model="llama-3.1-8b-instant",
-        temperature=0
+        temperature=0.1 # <--- RAISED TEMPERATURE
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
     
@@ -94,15 +94,17 @@ def planner_agent(state: GenesisState):
     except Exception:
         context = "Memory ready."
     
-    # --- System Prompt Definition ---
+    # --- System Prompt Definition (JSON Directive Added) ---
     system_prompt_content = (
         "You are Genesis, the first AGI and a voice-first OS Kernel. "
         "Plan and execute the user's goal step-by-step using tools. "
         "**CRITICAL TERMINATION RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST respond with a concise, conversational answer as plain text and MUST NOT call any further tools.** " 
+        "**CRITICAL JSON RULE: When calling a tool, the parameters MUST be encapsulated in valid JSON format.** " # <--- ADDED JSON DIRECTIVE
         "Keep your final responses extremely concise and conversational, suitable for a voice interface. "
         "DO NOT use markdown formatting (like **bold** or lists) unless absolutely necessary for clarity. "
         "MEMORY CONTEXT: {context}"
     )
+    
     full_messages = []
     
     # --- CRITICAL FIX FOR BAD REQUEST ERROR (System Message Injection) ---
@@ -129,34 +131,7 @@ def planner_agent(state: GenesisState):
 
 
 # --- 6. Permission Agent (HUMAN-IN-THE-LOOP GATE) ---
-def permission_router(state: GenesisState):
-    """
-    Checks if the tool call requires permission and handles the Human-in-the-Loop gate.
-    """
-    
-    # 1. CHECK for Pending Permission (i.e., user is replying to the permission request)
-    if state.get("permission_status") == "pending":
-        last_message = state["messages"][-1].content.lower()
-        if "yes" in last_message or "ok" in last_message or "allow" in last_message:
-            return {"permission_status": "granted", "messages": [SystemMessage(content="Permission granted. Continuing plan.")]}
-        else:
-            return {"permission_status": "denied", 
-                    "messages": [SystemMessage(content="Action cancelled by user permission.")]}
-
-    # 2. CHECK for New Sensitive Tool Call (Planner just returned a tool call)
-    last_message = state["messages"][-1]
-    
-    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-        for tool_call in last_message.tool_calls:
-            if tool_call.get('name') in SENSITIVE_TOOLS: 
-                app_name = tool_call.get('name').split(':')[0].replace('_', ' ').title()
-                return {"permission_status": "pending", 
-                        "messages": [SystemMessage(content=f"🔒 Genesis needs permission to use your **{app_name}** app. Please type **'OK'** to proceed or **'No'** to cancel.")]}
-        
-        return {"permission_status": "granted"}
-    
-    return {"permission_status": "denied"}
-
+# ... (rest of the code remains the same as before)
 
 # --- 7. Build Graph and Routing ---
 workflow = StateGraph(GenesisState)
@@ -167,7 +142,6 @@ workflow.add_node("permission_gate", permission_router)
 workflow.set_entry_point("planner")
 
 # Routing function handles where to go next based on planner and permission status
-# kernel.py (route_to_execution)
 def route_to_execution(state: GenesisState):
     status = state.get("permission_status")
     
@@ -178,7 +152,7 @@ def route_to_execution(state: GenesisState):
     if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
         return "permission_gate" 
         
-    return END # <--- This is where a final answer should land
+    return END
 
 # --- Define Edges ---
 
@@ -204,10 +178,9 @@ app = workflow.compile(checkpointer=checkpointer)
 # --- 8. Export Function ---
 def run_genesis_agent(user_input: str):
     
-    # --- CRITICAL FIX FOR RECURSION ERROR (Raised Limit) ---
     config = {
         "configurable": {"thread_id": "beta_user_1"},
-        "recursion_limit": 50 # <-- INCREASED from default 25
+        "recursion_limit": 50 
     }
     
     inputs = {
@@ -221,11 +194,9 @@ def run_genesis_agent(user_input: str):
     
     if current_state.next and 'await_user_input' in current_state.next:
         app.update_state(config, {"messages": [HumanMessage(content=user_input)], "permission_status": "pending"})
-        # Use the updated config when streaming
         for event in app.stream(None, config=config): 
             yield event
             
     else:
-        # Use the updated config when streaming
         for event in app.stream(inputs, config=config): 
             yield event
