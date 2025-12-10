@@ -63,10 +63,10 @@ def setup_genesis_engine():
     
     memory_bus = UniversalMemoryBus()
     
-    # --- CRITICAL CHANGE: Use Llama 3.1 8B Instant for stable tool use ---
+    # --- CRITICAL FIX: Use the stable, production Llama 3.1 8B model ---
     llm_client = ChatGroq(
-        # Switched from deprecated mixtral to llama-3.1-8b-instant
-        model="llama-3.1-8b-instant", # <--- UPDATED MODEL ID
+        # The llama-3.1-8b-instant model is a Groq production model that supports tool use.
+        model="llama-3.1-8b-instant", # <--- FINAL MODEL ID CONFIRMED
         temperature=0
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
