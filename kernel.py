@@ -17,8 +17,6 @@ from langgraph.checkpoint.memory import MemorySaver
 load_dotenv()
 
 # CRITICAL FIX: Ensure the Streamlit secret is loaded into the OS environment
-# This is a safeguard against Streamlit/OS caching issues.
-# It prioritizes the Groq key now.
 if os.getenv("GROQ_API_KEY"):
     os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
@@ -66,7 +64,7 @@ def setup_genesis_engine():
     # --- CRITICAL FIX: Use the stable, production Llama 3.1 8B model ---
     llm_client = ChatGroq(
         # The llama-3.1-8b-instant model is a Groq production model that supports tool use.
-        model="llama-3.1-8b-instant", # <--- FINAL MODEL ID CONFIRMED
+        model="llama-3.1-8b-instant",
         temperature=0
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
@@ -97,11 +95,11 @@ def planner_agent(state: GenesisState):
     except Exception:
         context = "Memory ready."
     
-    # --- CRITICAL FIX FOR RECURSION ERROR ---
+    # --- CRITICAL FIX FOR RECURSION ERROR (System Prompt Rule) ---
     system_prompt = (
         "You are Genesis, the first AGI and a voice-first OS Kernel. "
         "Plan and execute the user's goal step-by-step using tools. "
-        "**CRITICAL RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST terminate the cycle by providing the final answer as plain text with NO tool call.** " # <--- THIS FORCES THE END CONDITION
+        "**CRITICAL RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST terminate the cycle by providing the final answer as plain text with NO tool call.** " 
         "Keep your final responses extremely concise and conversational, suitable for a voice interface. "
         "DO NOT use markdown formatting (like **bold** or lists) unless absolutely necessary for clarity. "
         "MEMORY CONTEXT: {context}"
@@ -198,7 +196,12 @@ app = workflow.compile(checkpointer=checkpointer)
 
 # --- 8. Export Function ---
 def run_genesis_agent(user_input: str):
-    config = {"configurable": {"thread_id": "beta_user_1"}}
+    
+    # --- CRITICAL FIX FOR RECURSION ERROR (Raised Limit) ---
+    config = {
+        "configurable": {"thread_id": "beta_user_1"},
+        "recursion_limit": 50 # <-- INCREASED from default 25
+    }
     
     inputs = {
         "messages": [HumanMessage(content=user_input)], 
@@ -211,9 +214,11 @@ def run_genesis_agent(user_input: str):
     
     if current_state.next and 'await_user_input' in current_state.next:
         app.update_state(config, {"messages": [HumanMessage(content=user_input)], "permission_status": "pending"})
-        for event in app.stream(None, config=config):
+        # Use the updated config when streaming
+        for event in app.stream(None, config=config): 
             yield event
             
     else:
-        for event in app.stream(inputs, config=config):
+        # Use the updated config when streaming
+        for event in app.stream(inputs, config=config): 
             yield event
