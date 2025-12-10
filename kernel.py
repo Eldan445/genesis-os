@@ -61,10 +61,11 @@ def setup_genesis_engine():
     
     memory_bus = UniversalMemoryBus()
     
-    # --- CRITICAL FIX: Raise temperature slightly for better JSON generation ---
+    # --- CRITICAL FIX: Swap to the more reliable 70B model for tool calling stability ---
     llm_client = ChatGroq(
-        model="llama-3.1-8b-instant",
-        temperature=0.1 # <--- RAISED TEMPERATURE
+        # Changed from llama-3.1-8b-instant to llama-3.1-70b-versatile
+        model="llama-3.1-70b-versatile", # <--- MODEL SWAP
+        temperature=0.1 
     )
     llm_with_tools_bound = llm_client.bind_tools(tools)
     
@@ -94,12 +95,12 @@ def planner_agent(state: GenesisState):
     except Exception:
         context = "Memory ready."
     
-    # --- System Prompt Definition (JSON Directive Added) ---
+    # --- System Prompt Definition ---
     system_prompt_content = (
         "You are Genesis, the first AGI and a voice-first OS Kernel. "
         "Plan and execute the user's goal step-by-step using tools. "
         "**CRITICAL TERMINATION RULE: If the user's request has been fully addressed, or if a tool has returned the final necessary information, you MUST respond with a concise, conversational answer as plain text and MUST NOT call any further tools.** " 
-        "**CRITICAL JSON RULE: When calling a tool, the parameters MUST be encapsulated in valid JSON format.** " # <--- ADDED JSON DIRECTIVE
+        "**CRITICAL JSON RULE: When calling a tool, the parameters MUST be encapsulated in valid JSON format.** " 
         "Keep your final responses extremely concise and conversational, suitable for a voice interface. "
         "DO NOT use markdown formatting (like **bold** or lists) unless absolutely necessary for clarity. "
         "MEMORY CONTEXT: {context}"
@@ -108,12 +109,9 @@ def planner_agent(state: GenesisState):
     full_messages = []
     
     # --- CRITICAL FIX FOR BAD REQUEST ERROR (System Message Injection) ---
-    # Only inject the SystemMessage if the current history does not contain one yet.
     if not any(isinstance(m, SystemMessage) for m in filtered_messages):
-        # Inject the SystemMessage as the very first message
         full_messages.append(SystemMessage(content=system_prompt_content.format(context=context)))
     
-    # Add the rest of the conversation history
     full_messages.extend(filtered_messages)
     
     if not any(isinstance(m, HumanMessage) for m in full_messages):
@@ -129,13 +127,10 @@ def planner_agent(state: GenesisState):
     
     return {"messages": [response], "context": context, "plan_status": "Processing"}
 
-
 # --- 6. Permission Agent (HUMAN-IN-THE-LOOP GATE) ---
-# ... (rest of the code remains the same as before)
 def permission_router(state: GenesisState):
-    """
-    Checks if the tool call requires permission and handles the Human-in-the-Loop gate.
-    """
+    # ... (function contents) ...
+    # Moved the definition of this function BEFORE the graph setup to fix NameError
     
     # 1. CHECK for Pending Permission (i.e., user is replying to the permission request)
     if state.get("permission_status") == "pending":
@@ -160,11 +155,12 @@ def permission_router(state: GenesisState):
     
     return {"permission_status": "denied"}
 
-# --- 7. Build Graph and Routing ---
+
+# --- 7. Build Graph and Routing --- 
 workflow = StateGraph(GenesisState)
 workflow.add_node("planner", planner_agent)
 workflow.add_node("tools", ToolNode(tools))
-workflow.add_node("permission_gate", permission_router)
+workflow.add_node("permission_gate", permission_router) # This is now defined above
 
 workflow.set_entry_point("planner")
 
@@ -226,4 +222,4 @@ def run_genesis_agent(user_input: str):
             
     else:
         for event in app.stream(inputs, config=config): 
-            yield event
+            yield event 
