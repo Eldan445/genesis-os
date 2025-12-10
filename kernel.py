@@ -17,8 +17,7 @@ from langgraph.checkpoint.memory import MemorySaver
 load_dotenv()
 
 # CRITICAL FIX: Ensure the Streamlit secret is loaded into the OS environment
-if os.getenv("GROQ_API_KEY"):
-    os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+groq_api_key = os.getenv("GROQ_API_KEY")
 
 if not os.getenv("GROQ_API_KEY"):
     print("❌ ERROR: GROQ_API_KEY not found. Streamlit Secret is likely missing or named incorrectly.")
@@ -63,7 +62,7 @@ def setup_genesis_engine():
     
     # --- CRITICAL FIX: Swap to the more reliable 70B model for tool calling stability ---
     llm_client = ChatGroq(
-        groq_api_key=groq_api_key, # <-- Passes key explicitly (optional, but robust)
+        groq_api_key=groq_api_key , # <-- Passes key explicitly (optional, but robust)
         model="mixtral-8x7b-32768", # <-- RENAMED PARAMETER TO 'model' (Previously MODEL_NAME)
         temperature=0.1 
     )
