@@ -7,3 +7,4 @@ duckduckgo-search
 gtts
 streamlit-mic-recorder
 chromadb
+langchain-community
