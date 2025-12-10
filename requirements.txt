@@ -8,3 +8,5 @@ gtts
 streamlit-mic-recorder
 chromadb
 langchain-community
+# New addition (just in case the search library needs to be explicitly named)
+ddg-search
