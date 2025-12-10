@@ -9,3 +9,4 @@ streamlit-mic-recorder
 chromadb
 langchain-community
 ddgs
+sentence-transformers
