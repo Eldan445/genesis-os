@@ -1,12 +1,15 @@
 streamlit
 langgraph
 langchain-groq
-langchain_google_community
+langchain-community
+langchain-core
+langchain-google-community
 google-auth-oauthlib
-duckduckgo-searchrun
+duckduckgo-search
 beautifulsoup4
 streamlit-mic-recorder
 gTTS
 chromadb
 sentence-transformers
 python-dotenv
+pysqlite3-binary
