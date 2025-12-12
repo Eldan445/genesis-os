@@ -3,10 +3,10 @@ langgraph
 langchain-groq
 langchain_google_community
 google-auth-oauthlib
-duckduckgo-search
+duckduckgo-search>=5.3.0
+beautifulsoup4
 streamlit-mic-recorder
 gTTS
 chromadb
 sentence-transformers
 python-dotenv
-beautifulsoup4
