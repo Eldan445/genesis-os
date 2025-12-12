@@ -1,152 +1,186 @@
-# genesis_ui.py
 import streamlit as st
 import io
+import base64
 import json
 from gtts import gTTS
 from kernel import run_genesis_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from streamlit_mic_recorder import speech_to_text
 
-# --- 1. CONFIGURATION (Mobile & Audio Setup) ---
-st.set_page_config(page_title="Genesis AGI", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="GENESIS OS", page_icon="🧬", layout="wide", initial_sidebar_state="collapsed")
 
-# Custom CSS for Mobile "App-Like" Feel
-hide_st_style = """
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-div.block-container {padding-top: 1rem; padding-bottom: 5rem;}
-/* Style the mic button to be prominent */
-div[data-testid="stMarkdownContainer"] p {font-size: 1.1rem;}
-</style>
-"""
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# --- 2. HOLOGRAPHIC CSS (THE NEW LOOK) ---
+def inject_jarvis_style():
+    st.markdown("""
+    <style>
+        /* MAIN BACKGROUND - Deep Blue Radial Gradient */
+        .stApp {
+            background: radial-gradient(circle at 50% 10%, #0f1c3f 0%, #020c1b 100%);
+            color: #e6f1ff;
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+        }
+        
+        /* HIDE UI CLUTTER */
+        #MainMenu, footer, header {visibility: hidden;}
+        div[data-testid="stToolbar"] {display: none;}
+        
+        /* HOLOGRAPHIC CARDS (Glassmorphism) */
+        .stChatMessage {
+            background: rgba(17, 34, 64, 0.7);
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* STATUS WIDGET */
+        div[data-testid="stStatusWidget"] {
+            background: rgba(16, 33, 62, 0.9);
+            border: 1px solid #64ffda;
+            color: #64ffda;
+            border-radius: 8px;
+        }
 
-# --- 2. HELPER FUNCTIONS ---
+        /* THE ORB (Voice Button) - Updated to Blue/Cyan */
+        div.stButton > button:first-child {
+            width: 160px !important; 
+            height: 160px !important; 
+            border-radius: 50% !important;
+            background: radial-gradient(circle, #00f2ff 0%, #0078ff 100%);
+            border: 2px solid #ffffff !important;
+            box-shadow: 0 0 30px #0078ff, inset 0 0 20px #ffffff;
+            color: #ffffff !important;
+            font-size: 18px !important; 
+            font-weight: 600 !important;
+            margin: 0 auto !important; 
+            display: block !important;
+            transition: all 0.3s ease;
+        }
+        
+        div.stButton > button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 60px #00f2ff;
+        }
 
+        /* TYPOGRAPHY */
+        h1, h2, h3 {
+            color: #ccd6f6 !important;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+        }
+        p {
+            color: #8892b0 !important;
+            font-size: 1.1rem;
+        }
+        
+        /* SIDEBAR STYLING */
+        section[data-testid="stSidebar"] {
+            background-color: #020c1b;
+            border-right: 1px solid rgba(100, 255, 218, 0.1);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. AUDIO SYSTEM ---
 def text_to_speech_autoplay(text):
-    """Converts text to audio and plays it automatically."""
     try:
-        # Generate audio using Google TTS
         tts = gTTS(text=text, lang='en', slow=False)
         audio_fp = io.BytesIO()
         tts.write_to_fp(audio_fp)
-        # Display audio player (hidden or visible)
-        st.audio(audio_fp, format='audio/mp3', start_time=0)
-    except Exception as e:
-        # If audio fails (e.g., network), just log it silently or show a small toast
-        pass
+        b64 = base64.b64encode(audio_fp.getvalue()).decode()
+        md = f"""<audio autoplay style="display:none;"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>"""
+        st.markdown(md, unsafe_allow_html=True)
+    except: pass
 
 def clean_response_text(content):
-    """Parses raw Gemini JSON/List output into clean text."""
-    if isinstance(content, list):
-        # Join text parts if it's a list of blocks
-        return "".join([block.get('text', '') for block in content if isinstance(block, dict) and 'text' in block])
+    if isinstance(content, list): return "".join([b.get('text', '') for b in content if isinstance(b, dict)])
     return str(content)
 
-# --- 3. SESSION STATE ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# --- 4. MAIN APP ---
+def main():
+    inject_jarvis_style()
+    
+    if "messages" not in st.session_state: st.session_state.messages = []
 
-# --- 4. CHAT HISTORY DISPLAY ---
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    # --- SIDEBAR: NEURAL LINK ---
+    with st.sidebar:
+        st.markdown("### 💠 **NEURAL LINK**")
+        st.caption("Upload your `token.json` for private access.")
+        uploaded_file = st.file_uploader("Authentication Token", type="json")
+        if uploaded_file:
+            st.session_state["user_custom_token"] = json.load(uploaded_file)
+            st.success("✅ SYSTEM LINKED")
+        if st.button("DISCONNECT"):
+            if "user_custom_token" in st.session_state: del st.session_state["user_custom_token"]
+            st.rerun()
 
-# --- 5. VOICE INPUT HANDLER ---
+    # --- HUD HEADER ---
+    c1, c2 = st.columns([3, 1])
+    with c1: 
+        st.markdown("## 🧬 **GENESIS DASHBOARD**")
+    with c2: 
+        # Modern Toggle
+        quiet_toggle = st.toggle("🔇 QUIET MODE", value=False)
 
-# Create two columns: One for Mic, One for Text Fallback
-col1, col2 = st.columns([1, 4])
+    # --- CENTRAL ORB ---
+    st.write("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        voice_text = speech_to_text(language='en', start_prompt="TAP TO ACTIVATE", stop_prompt="LISTENING...", just_once=True, use_container_width=True, key='jarvis_mic')
 
-with col1:
-    st.write("🎙️")
-    # This button activates the mic on your phone/laptop
-    # It returns the transcribed text automatically
-    voice_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='mic')
+    # --- CHAT CONTAINER ---
+    chat_container = st.container()
+    text_input = st.chat_input("Enter command sequence...")
 
-with col2:
-    text_input = st.chat_input("Or type command...")
+    # --- LOGIC ---
+    user_prompt = None
+    is_voice_mode = False
 
-# Determine which input to use (Voice takes priority if active)
-user_prompt = voice_text if voice_text else text_input
+    if voice_text:
+        user_prompt = voice_text
+        is_voice_mode = True 
+    elif text_input:
+        user_prompt = text_input
+        is_voice_mode = False 
 
-if user_prompt:
-    # 1. Display User Message
-    st.session_state.messages.append({"role": "user", "content": user_prompt})
-    with st.chat_message("user"):
-        st.markdown(user_prompt)
+    # --- EXECUTION ---
+    if user_prompt:
+        st.session_state.messages.append({"role": "user", "content": user_prompt})
+        with chat_container:
+            for message in st.session_state.messages:
+                # Avatar Icons
+                role_icon = "🤖" if message["role"] == "assistant" else "👤"
+                with st.chat_message(message["role"]): 
+                    st.markdown(f"**{role_icon}** {message['content']}")
 
-    # 2. Agent Execution
-    with st.status("🧠 Genesis Processing...", expanded=True) as status:
-        
-        agent_stream = run_genesis_agent(user_prompt)
-        final_text_accumulator = ""
-        is_paused = False
-        
-        for event in agent_stream:
-            # LangGraph events are usually {'node_name': {'messages': [...]}}
-            # We iterate over values to find the message data regardless of node name
-            for node_data in event.values():
-                if not isinstance(node_data, dict) or "messages" not in node_data:
-                    continue
-                
-                msg = node_data["messages"][-1]
-                
-                # A. Handle Permission Gate (The Pause)
-                if isinstance(msg, SystemMessage) and "Permission" in str(msg.content):
-                    status.update(label="🔒 Awaiting Permission", state="running", expanded=True)
-                    is_paused = True
-                    
-                    with st.chat_message("assistant"):
-                        st.warning(msg.content) # Use warning for visibility
-                        # We also speak the permission request!
-                        text_to_speech_autoplay("I need permission to proceed.")
-                        
-                    st.session_state.messages.append({"role": "assistant", "content": msg.content})
-                    # Break the inner loop to stop processing this stream
-                    break 
-                
-                # B. Handle Tool Calls (Status Update Only)
-                elif hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    # Safe access to tool name
-                    try:
-                        tool_name = msg.tool_calls[0].get('name', 'Tool')
-                    except AttributeError:
-                        tool_name = msg.tool_calls[0].name
-                        
-                    app_name = tool_name.split(':')[0].replace('_', ' ').title()
-                    status.update(label=f"🛠️ Accessing {app_name}...", state="running")
-                
-                # C. Handle Final Text (Accumulate Clean Text)
-                else:
-                    # Clean the raw JSON/UMB logs here!
-                    clean_chunk = clean_response_text(msg.content)
-                    final_text_accumulator += clean_chunk
+        with st.status("💠 PROCESSING DATA STREAM...", expanded=True) as status:
+            final_text = ""
+            try:
+                agent_stream = run_genesis_agent(user_prompt)
+                for event in agent_stream:
+                    for node_data in event.values():
+                        if "messages" in node_data:
+                            msg = node_data["messages"][-1]
+                            if isinstance(msg, SystemMessage) and "permission" in str(msg.content).lower():
+                                status.update(label="🔒 AWAITING AUTHORIZATION", state="running")
+                            final_text += clean_response_text(msg.content)
+            except Exception as e:
+                final_text = f"SYSTEM ERROR: {str(e)}"
+                status.update(label="❌ CONNECTION FAILED", state="error")
+            status.update(label="✅ EXECUTION COMPLETE", state="complete", expanded=False)
 
-            # Stop the outer loop if we paused for permission
-            if is_paused:
-                break
-                
-            # Handle Planner Status Updates if present at top level
-            if "plan_status" in event.get('planner', {}):
-                status.update(label=f"🧠 {event['planner']['plan_status']}...", state="running")
-
-        # 3. Final Output & Audio
-        if final_text_accumulator:
-            # Display Text
-            with st.chat_message("assistant"):
-                st.markdown(final_text_accumulator)
+        if final_text:
+            st.session_state.messages.append({"role": "assistant", "content": final_text})
+            with chat_container:
+                with st.chat_message("assistant"): st.markdown(f"**🤖** {final_text}")
             
-            # Save to History
-            st.session_state.messages.append({"role": "assistant", "content": final_text_accumulator})
-            
-            # Close Status Bar
-            status.update(label="✅ Complete", state="complete", expanded=False)
-            
-            # SPEAK THE RESPONSE
-            text_to_speech_autoplay(final_text_accumulator)
+            # Mission Success Card
+            if "booked" in final_text.lower() or "sent" in final_text.lower():
+                st.balloons()
+                st.info(f"**✅ TASK COMPLETED SUCCESSFULLY**\n\n> {final_text}")
 
-        elif not is_paused:
-            # If no text but finished (rare), just close status
-            status.update(label="✅ Done", state="complete", expanded=False)
+            if is_voice_mode and not quiet_toggle:
+                text_to_speech_autoplay(final_text)
+
+if __name__ == "__main__":
+    main()
