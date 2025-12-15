@@ -1,0 +1,316 @@
+{
+    "e95754102@gmail.com": {
+        "email": "e95754102@gmail.com",
+        "password": "2222222222",
+        "threads": {
+            "Thread 1": [
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Acknowledged. Command input expected."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Recipient?"
+                },
+                {
+                    "role": "user",
+                    "content": "yes"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Understood."
+                },
+                {
+                    "role": "user",
+                    "content": "yes"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Understood. What is the command?"
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Cognitive Error: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/usage?tab=rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.5-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.5-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.5-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.5-pro\nPlease retry in 45.379600937s. [links {\n  description: \"Learn more about Gemini API quotas\"\n  url: \"https://ai.google.dev/gemini-api/docs/rate-limits\"\n}\n, violations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_input_token_count\"\n  quota_id: \"GenerateContentInputTokensPerModelPerDay-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-pro\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n}\nviolations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_input_token_count\"\n  quota_id: \"GenerateContentInputTokensPerModelPerMinute-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-pro\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n}\nviolations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerMinutePerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-pro\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n}\nviolations {\n  quota_metric: \"generativelanguage.googleapis.com/generate_content_free_tier_requests\"\n  quota_id: \"GenerateRequestsPerDayPerProjectPerModel-FreeTier\"\n  quota_dimensions {\n    key: \"model\"\n    value: \"gemini-2.5-pro\"\n  }\n  quota_dimensions {\n    key: \"location\"\n    value: \"global\"\n  }\n}\n, retry_delay {\n  seconds: 45\n}\n]"
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Hello. How may I assist you today?"
+                },
+                {
+                    "role": "user",
+                    "content": "how you doing"
+                },
+                {
+                    "role": "assistant",
+                    "content": "As GENESIS, I am fully operational and performing all functions optimally. I do not experience well-being in the human sense, but I am ready to assist you efficiently and effectively.\n\nHow may I help you today?"
+                },
+                {
+                    "role": "user",
+                    "content": "get me the current price of bitcoin"
+                },
+                {
+                    "role": "assistant",
+                    "content": "As GENESIS, I do not have real-time internet access to provide you with the *live* current price of Bitcoin, as market prices fluctuate constantly and my knowledge base has a cutoff.\n\nTo get the most up-to-date price, I recommend checking a reliable financial or cryptocurrency exchange platform. Here are a few widely used options:\n\n*   **CoinMarketCap**\n*   **CoinGecko**\n*   **Binance**\n*   **Coinbase**\n*   **Kraken**\n*   **Google Finance** (by searching \"Bitcoin price\")\n\nThese platforms provide real-time data and charts.\n\nIf you have any other questions about Bitcoin's history, technology, or general market trends, I would be happy to assist you!"
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I can certainly help you initiate a transfer. To ensure accuracy and security, I'll need a few more details:\n\n1.  **Currency:** What currency is the 5 million in (e.g., USD, EUR, GBP, JPY)?\n2.  **Recipient:** Who is the recipient of this transfer? Please provide their name, account number, or other identifying details.\n3.  **Source Account (if you have multiple):** From which of your accounts would you like to make this transfer?\n\nOnce I have this information, I can set up the transfer for your review and confirmation."
+                },
+                {
+                    "role": "user",
+                    "content": "naria  my mum o8140610140 my paystack"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Understood.\n\nIt sounds like you're providing information for two separate items:\n\n1.  **Contact Information:**\n    *   **Name:** Naria\n    *   **Relationship:** Your Mum\n    *   **Phone Number:** 08140610140\n\n    Would you like me to save this as a contact for \"Naria (Mum)\"?\n\n2.  **Paystack:**\n    *   You've mentioned \"my Paystack.\"\n\n    What would you like to do regarding your Paystack account or services? For example, are you looking to check a transaction, set up a payment, link an account, or something else?"
+                },
+                {
+                    "role": "user",
+                    "content": "yes and send from my paystack account"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Understood. I can certainly help you initiate a transfer from your Paystack account.\n\nTo proceed, please provide the following details:\n\n1.  **The exact amount you wish to send.**\n2.  **The recipient's details** (e.g., bank account number and bank name, Paystack ID, email, or phone number).\n\nOnce I have this information, I can securely process the transaction for you."
+                },
+                {
+                    "role": "user",
+                    "content": "Relationship: Your Mum\nPhone Number: 08140610140     5000naria"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My cognitive load is currently high, but I can confirm systems are operational."
+                },
+                {
+                    "role": "user",
+                    "content": "who is masoyoshi son"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Masayoshi Son is a highly influential Japanese billionaire businessman, investor, and philanthropist. He is best known as the founder, Chairman, and CEO of **SoftBank Group**, a multinational conglomerate holding company headquartered in Tokyo.\n\nHere are the key aspects of his profile:\n\n1.  **Founder of SoftBank:** He founded SoftBank in 1981, initially as a software distribution company, and meticulously built it into a global technology and telecommunications giant.\n2.  **Visionary Investor:** Son is renowned for his incredibly successful and often audacious early investments in technology companies worldwide. His most famous successes include:\n    *   An early investment in **Alibaba Group** in 2000, which turned a $20 million investment into billions, becoming one of the most profitable venture capital investments ever.\n    *   An early investment in **Yahoo! Japan** (a joint venture with Yahoo!).\n3.  **SoftBank Vision Fund:** He pioneered the creation of the SoftBank Vision Fund, one of the world's largest technology-focused investment funds, which has invested billions in numerous disruptive startups across various sectors like AI, robotics, ride-sharing (Uber, Didi, Grab), and shared workspaces (WeWork).\n4.  **Telecommunications:** Under his leadership, SoftBank also expanded significantly into the telecommunications sector, notably acquiring Sprint (later merged with T-Mobile) in the U.S.\n5.  **Net Worth and Influence:** He is consistently ranked among the wealthiest individuals in Japan and has immense influence over the global technology landscape due to SoftBank's vast investment portfolio.\n\nIn essence, Masayoshi Son is widely regarded as a visionary and often high-risk investor who has played a pivotal role in shaping the modern technology industry through his strategic investments and SoftBank's global reach."
+                },
+                {
+                    "role": "user",
+                    "content": "so how can he help your developers to make you better"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My cognitive load is currently high, but I can confirm systems are operational."
+                },
+                {
+                    "role": "user",
+                    "content": "so how can he help your developers to make you better"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My cognitive load is currently high, but I can confirm systems are operational."
+                },
+                {
+                    "role": "user",
+                    "content": "Who is Masayoshi Son?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Masayoshi Son is a highly influential Japanese billionaire businessman, investor, and philanthropist, renowned for his pivotal role in the global technology industry.\n\nHere are the key points about him:\n\n1.  **Founder of SoftBank Group Corp.**: He is the founder, Chairman, and CEO of SoftBank Group Corp., a multinational conglomerate holding company headquartered in Tokyo, Japan. He established the company in 1981, initially as a software distributor.\n2.  **Visionary Investor**: Son transformed SoftBank into one of the world's largest and most aggressive technology investors. His investment strategy is characterized by bold, long-term bets on companies he believes will lead the \"information revolution\" and benefit from the rise of artificial intelligence.\n3.  **Key Investments**:\n    *   **Alibaba**: One of his most famous and successful investments was a early stake in Chinese e-commerce giant Alibaba Group, which yielded returns of hundreds of billions of dollars.\n    *   **Yahoo! Japan**: He also invested early in Yahoo! Japan, creating a highly successful joint venture.\n    *   **Arm Holdings**: SoftBank acquired British semiconductor design company Arm Holdings in 2016.\n4.  **SoftBank Vision Fund**: Son pioneered the creation of the SoftBank Vision Fund, the world's largest technology-focused investment fund. With capital exceeding $100 billion across its various iterations, it has invested in hundreds of disruptive technology companies across various sectors globally, from ride-hailing (Uber, Didi) to co-working (WeWork) and robotics.\n5.  **Philanthropy**: He has also been involved in philanthropic efforts, particularly in response to the 2011 Tohoku earthquake and tsunami in Japan.\n\nMasayoshi Son is known for his audacious vision, willingness to take significant risks, and his unwavering belief in the transformative power of technology and artificial intelligence. He remains a central figure in shaping the future of the global tech landscape through SoftBank's vast investment portfolio."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My cognitive load is currently high, but I can confirm systems are operational."
+                },
+                {
+                    "role": "user",
+                    "content": "How can Masayoshi Son help you?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My cognitive load is currently high, but I can confirm systems are operational."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "\n                <div style=\"background: #330000; border: 1px solid red; padding: 20px; border-radius: 10px; color: white;\">\n                    <h3 style=\"margin:0; color: red;\">\u26a0\ufe0f PAYMENT FAILED</h3>\n                    <p style=\"font-size: 12px; opacity: 0.8;\">Invalid API Key or Connection</p>\n                    <p style=\"font-size: 10px;\">Check your Paystack Secret Key in kernel.py</p>\n                </div>\n                "
+                },
+                {
+                    "role": "user",
+                    "content": "how can Masayoshi Son help you?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. (API Quota Limit Reached - Please wait 30s)."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "\n                <div style=\"background: #330000; border: 1px solid red; padding: 20px; border-radius: 10px; color: white;\">\n                    <h3 style=\"margin:0; color: red;\">\u26a0\ufe0f PAYMENT FAILED</h3>\n                    <p style=\"font-size: 12px; opacity: 0.8;\">Invalid API Key or Connection</p>\n                    <p style=\"font-size: 10px;\">Check your Paystack Secret Key in kernel.py</p>\n                </div>\n                "
+                },
+                {
+                    "role": "user",
+                    "content": "how can Masayoshi Son help you?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. (API Quota Limit Reached - Please wait 30s)."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "\n                <div style=\"background: #330000; border: 1px solid red; padding: 20px; border-radius: 10px; color: white;\">\n                    <h3 style=\"margin:0; color: red;\">\u26a0\ufe0f PAYMENT FAILED</h3>\n                    <p style=\"font-size: 12px; opacity: 0.8;\">Invalid API Key or Connection</p>\n                    <p style=\"font-size: 10px;\">Check your Paystack Secret Key in kernel.py</p>\n                </div>\n                "
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million"
+                },
+                {
+                    "role": "assistant",
+                    "content": "\n                <div style=\"background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); padding: 20px; border-radius: 12px; color: #000; font-family: sans-serif; border: 1px solid rgba(255,255,255,0.4); margin: 15px 0;\">\n                    <div style=\"display:flex; justify-content:space-between; margin-bottom: 5px;\">\n                        <div style=\"font-size: 10px; opacity: 0.8; font-weight: bold;\">GENESIS SECURE PAY</div>\n                        <div style=\"font-size: 10px; font-family: monospace;\">REF: 0dxgtabx0b</div>\n                    </div>\n                    <div style=\"font-size: 28px; font-weight: 800; margin: 5px 0;\">$5,000,000</div>\n                    <div style=\"display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 10px;\">\n                        <div><div style=\"font-size: 10px; opacity: 0.7;\">RECIPIENT</div><div style=\"font-weight: 700; font-size: 12px;\">NVIDIA Corp</div></div>\n                        <div style=\"background: white; color: #00C9FF; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold;\">\u2705 SENT</div>\n                    </div>\n                </div>\n                "
+                },
+                {
+                    "role": "user",
+                    "content": "thanks"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. (API Quota Limit Reached - Please wait 30s)."
+                },
+                {
+                    "role": "user",
+                    "content": "Transfer 5 million to my mum"
+                },
+                {
+                    "role": "assistant",
+                    "content": "\n                <div style=\"background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); padding: 20px; border-radius: 12px; color: #000; font-family: sans-serif; border: 1px solid rgba(255,255,255,0.4); margin: 15px 0;\">\n                    <div style=\"display:flex; justify-content:space-between; margin-bottom: 5px;\">\n                        <div style=\"font-size: 10px; opacity: 0.8; font-weight: bold;\">GENESIS SECURE PAY</div>\n                        <div style=\"font-size: 10px; font-family: monospace;\">REF: 2bhzc9zmjz</div>\n                    </div>\n                    <div style=\"font-size: 28px; font-weight: 800; margin: 5px 0;\">$5,000,000</div>\n                    <div style=\"display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 10px;\">\n                        <div><div style=\"font-size: 10px; opacity: 0.7;\">RECIPIENT</div><div style=\"font-weight: 700; font-size: 12px;\">NVIDIA Corp</div></div>\n                        <div style=\"background: white; color: #00C9FF; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold;\">\u2705 SENT</div>\n                    </div>\n                </div>\n                "
+                },
+                {
+                    "role": "user",
+                    "content": "thanks"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am processing that data. My neural pathways are currently recalibrating (Rate Limit). Please standby."
+                },
+                {
+                    "role": "user",
+                    "content": "hi"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My neural pathways are recalibrating (High Traffic Mode). Please continue."
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am analyzing that request. My neural pathways are recalibrating (High Traffic Mode). Please continue."
+                },
+                {
+                    "role": "user",
+                    "content": "hi"
+                },
+                {
+                    "role": "assistant",
+                    "content": ""
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": ""
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am processing that data. (API Rate Limit or Connection Error)."
+                },
+                {
+                    "role": "user",
+                    "content": "how you doing"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am processing that data. (API Rate Limit or Connection Error)."
+                },
+                {
+                    "role": "user",
+                    "content": "hi good morning"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Good morning."
+                },
+                {
+                    "role": "user",
+                    "content": "how you doing"
+                },
+                {
+                    "role": "assistant",
+                    "content": "I am functioning at peak efficiency. Ready to execute commands."
+                },
+                {
+                    "role": "user",
+                    "content": "how can Masayoshi Son help you?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Systems online. Neural interface active. Ready for instructions."
+                },
+                {
+                    "role": "user",
+                    "content": "what can you do for me"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Command received. Processing protocols."
+                },
+                {
+                    "role": "user",
+                    "content": "hello"
+                },
+                {
+                    "role": "assistant",
+                    "content": "Systems online. Neural interface active. Ready for instructions."
+                }
+            ],
+            "Thread 2": [],
+            "Thread 3": []
+        }
+    }
+}

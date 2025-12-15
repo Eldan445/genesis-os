@@ -1,67 +1,64 @@
-import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction 
+# umb.py (Universal Memory Bus)
+import sqlite3
+import threading
+import json
 import uuid
-import datetime
-import streamlit as st
-
-# CACHING: Prevents "Database Locked" errors on Streamlit Cloud
-@st.cache_resource(show_spinner="Initializing Neural Memory...")
-def get_memory_bus():
-    return UniversalMemoryBus()
+from datetime import datetime
 
 class UniversalMemoryBus:
-    def __init__(self):
-        # 1. SETUP
-        # We use a persistent path so memory survives restarts
-        self.client = chromadb.PersistentClient(path="./genesis_memory")
-        
-        # 2. EMBEDDING MODEL (Local & Free)
-        self.embedding_function = SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2" 
-        )
-        
-        # 3. COLLECTION
-        self.collection = self.client.get_or_create_collection(
-            name="genesis_knowledge",
-            embedding_function=self.embedding_function
-        )
-        
-        # 4. BOOTSTRAP DEFAULTS
-        if self.collection.count() == 0:
-            self._populate_default_memory()
+    _instance = None
+    _lock = threading.Lock()
 
-    def _populate_default_memory(self):
-        """Injects core operational rules."""
-        defaults = [
-            ("User prefers concise, terminal-style answers.", "personality"),
-            ("Default meeting duration is 30 minutes.", "scheduler_rule"),
-            ("Always ask for confirmation before sending external emails.", "security_protocol"),
-            ("Genesis is an Agentic OS, not a chatbot.", "identity")
-        ]
-        for text, category in defaults:
-            self.save_memory(text, {"type": "core_directive", "category": category})
+    def __new__(cls, db_path="genesis_memory.db"):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(UniversalMemoryBus, cls).__new__(cls)
+                cls._instance.db_path = db_path
+                cls._instance._init_db()
+        return cls._instance
 
-    def save_memory(self, memory_text: str, metadata: dict = None):
-        if metadata is None: metadata = {}
-        metadata["timestamp"] = datetime.datetime.now().isoformat()
-        
-        self.collection.add(
-            documents=[memory_text],
-            metadatas=[metadata],
-            ids=[str(uuid.uuid4())]
-        )
+    def _init_db(self):
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor = conn.cursor()
+            # Core memory table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS short_term_memory (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT,
+                    role TEXT,
+                    content TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # User preferences table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            conn.commit()
 
-    def retrieve_context(self, query: str, n_results=2):
-        if self.collection.count() == 0: return ""
-        
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results
-        )
-        
-        context_string = ""
-        if results and results['documents']:
-            for doc in results['documents'][0]:
-                context_string += f"- {doc}\n"
-        
-        return context_string
+    def log_interaction(self, session_id, role, content):
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor = conn.cursor()
+            entry_id = str(uuid.uuid4())
+            cursor.execute(
+                "INSERT INTO short_term_memory (id, session_id, role, content) VALUES (?, ?, ?, ?)",
+                (entry_id, session_id, role, str(content))
+            )
+            conn.commit()
+
+    def get_recent_context(self, session_id, limit=5):
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT role, content FROM short_term_memory WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
+                (session_id, limit)
+            )
+            rows = cursor.fetchall()
+        return [{"role": r[0], "content": r[1]} for r in reversed(rows)]
+
+# Singleton Accessor
+def get_memory_bus():
+    return UniversalMemoryBus()
