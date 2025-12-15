@@ -13,3 +13,4 @@ chromadb
 sentence-transformers
 python-dotenv
 pysqlite3-binary
+google-generativeai
