@@ -7,9 +7,9 @@ st.set_page_config(page_title="GENESIS OS", page_icon="🧿", layout="wide")
 
 # --- 2. IMPORTS & SETUP ---
 try:
-    from kernel import run_genesis_agent
+    from kernel import run_genesis_agent, text_to_speech_autoplay
 except ImportError:
-    st.error("⚠️ CRITICAL: kernel.py is missing or has errors.")
+    st.error("⚠️ CRITICAL: kernel.py is missing.")
     st.stop()
 
 # Mic Check
@@ -22,6 +22,7 @@ except ImportError:
 # --- 3. SESSION STATE ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "history" not in st.session_state: st.session_state.history = []
+if "last_voice_input" not in st.session_state: st.session_state.last_voice_input = ""
 
 # --- 4. CSS (CYBERPUNK STYLE) ---
 st.markdown("""
@@ -34,14 +35,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 5. LOGIN SCREEN (WITH ACCESS CODE GENERATOR) ---
+# --- 5. LOGIN SCREEN ---
 if not st.session_state.logged_in:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown("<br><br><h1 style='text-align: center; color: #00f2ff;'>🧿 GENESIS OS</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; opacity: 0.7; letter-spacing: 2px;'>SECURE NEURAL LINK</p>", unsafe_allow_html=True)
         
-        # Access Code Input
         password = st.text_input("ENTER ACCESS CODE", type="password")
         
         col_a, col_b = st.columns(2)
@@ -50,17 +50,12 @@ if not st.session_state.logged_in:
                 if password == "1234":
                     st.session_state.logged_in = True
                     st.rerun()
-                else:
-                    st.error("⛔ ACCESS DENIED")
-        
+                else: st.error("⛔ ACCESS DENIED")
         with col_b:
-            # THE DEMO KEY GENERATOR
             if st.button("REQUEST DEMO KEY"):
-                with st.spinner("Authenticating Biometrics..."):
-                    time.sleep(1.5) # Fake loading for effect
+                with st.spinner("Authenticating..."): time.sleep(1.5)
                 st.success("ACCESS GRANTED. CODE: 1234")
-                
-    st.stop() # Stop here if not logged in
+    st.stop()
 
 # --- 6. MAIN INTERFACE ---
 st.markdown("### 🧿 GENESIS OS: ACTIVE")
@@ -71,23 +66,31 @@ for msg in st.session_state.history:
         if "<div" in msg["content"]: st.markdown(msg["content"], unsafe_allow_html=True)
         else: st.write(msg["content"])
 
-# --- 7. INPUT AREA (MIC + TEXT) ---
+# --- 7. INPUT AREA (AUTO-LISTENING MIC) ---
 c1, c2 = st.columns([1, 8])
 
-voice_input = None
+voice_val = None
 with c1:
     if mic_available:
-        # The Mic Button
-        voice_text = speech_to_text(start_prompt="🎤", stop_prompt="🛑", key="mic")
-        if voice_text:
-            voice_input = voice_text
+        # This function listens until silence is detected, then returns text
+        voice_text = speech_to_text(
+            start_prompt="🎙️", 
+            stop_prompt="🛑", 
+            just_once=False,
+            key="mic"
+        )
+        # Check if we have NEW voice input
+        if voice_text and voice_text != st.session_state.last_voice_input:
+            voice_val = voice_text
+            st.session_state.last_voice_input = voice_text
     else:
         st.caption("No Mic")
 
 with c2:
-    text_input = st.chat_input("Enter command...")
+    text_val = st.chat_input("Enter command...")
 
-final_input = voice_input if voice_input else text_input
+# Prioritize Voice
+final_input = voice_val if voice_val else text_val
 
 if final_input:
     # 1. User Message
@@ -104,12 +107,20 @@ if final_input:
                         full_res = val["messages"][-1].content
                         if "<div" in full_res: place.markdown(full_res, unsafe_allow_html=True)
                         else: place.write(full_res)
+            
+            # 3. VOICE REPLY (TTS)
+            # Generate and Play Audio
+            audio_html = text_to_speech_autoplay(full_res)
+            if audio_html:
+                st.markdown(audio_html, unsafe_allow_html=True)
+                
         except Exception as e:
-            full_res = f"Error: {e}"
+            full_res = f"System Error: {e}"
             place.error(full_res)
             
         st.session_state.history.append({"role": "assistant", "content": full_res})
     
-    # Rerun if voice used to clear state
-    if voice_input:
+    # Rerun to refresh state if voice was used
+    if voice_val:
+        time.sleep(0.5)
         st.rerun()
