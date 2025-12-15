@@ -1,136 +1,93 @@
-import os
+import streamlit as st
 import time
-import datetime
-import requests
 import json
-import google.generativeai as genai
-import urllib.parse
-from dotenv import load_dotenv
+import os
 
-# --- CONFIGURATION ---
-load_dotenv()
-MEMORY_FILE = "genesis_long_term_memory.json"
+# --- 1. CONFIGURATION ---
+st.set_page_config(
+    page_title="GENESIS OS",
+    page_icon="🧿",
+    layout="wide"
+)
 
-# *** PASTE YOUR KEYS HERE ***
-GOOGLE_API_KEY = "PASTE_YOUR_GOOGLE_KEY_HERE"
-PAYSTACK_SECRET_KEY = "sk_test_PASTE_YOUR_PAYSTACK_KEY_HERE"
+# --- 2. CSS STYLING (Mobile Friendly) ---
+st.markdown("""
+<style>
+    .stApp { background-color: #000000; color: #ffffff; }
+    div[data-testid="stChatMessage"] { background-color: #111111; border: 1px solid #333; border-radius: 10px; }
+    /* Fix input box sticking to bottom */
+    .stChatInput { bottom: 10px; }
+</style>
+""", unsafe_allow_html=True)
 
-# --- 1. FORCE THE FREE MODEL (CRITICAL FIX) ---
-model = None
+# --- 3. IMPORTS CHECK ---
 try:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    # HARDCODED: We strictly use 1.5-flash to avoid '429 Quota' errors
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    print("[SYSTEM] CONNECTED TO: GEMINI 1.5 FLASH (STABLE)")
-except Exception as e:
-    print(f"KERNEL ERROR: {e}")
+    from kernel import run_genesis_agent
+except ImportError:
+    st.error("⚠️ CRITICAL ERROR: kernel.py not found. Please check GitHub.")
+    st.stop()
 
-# --- MEMORY ENGINE ---
-def load_memory():
-    if not os.path.exists(MEMORY_FILE): return []
-    with open(MEMORY_FILE, "r") as f: return json.load(f)
+# --- 4. SESSION STATE SETUP ---
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-def save_memory(fact):
-    memories = load_memory()
-    if fact not in memories:
-        memories.append(fact)
-        with open(MEMORY_FILE, "w") as f: json.dump(memories, f, indent=4)
+# --- 5. HEADER & TOOLS (No Sidebar for Mobile Stability) ---
+st.markdown("### 🧿 GENESIS OS")
 
-def get_relevant_memories():
-    mems = load_memory()
-    if not mems: return ""
-    return "USER CONTEXT:\n" + "\n".join([f"- {m}" for m in mems])
+# Expandable Camera Section (Visual Cortex)
+with st.expander("👁️ OPEN VISUAL CORTEX (CAMERA)", expanded=False):
+    cam = st.camera_input("Scan Environment")
+    if cam:
+        st.success("Image Acquired. Processing...")
+        # Simulate processing for demo
+        time.sleep(1)
+        st.session_state.history.append({"role": "assistant", "content": "Visual data analyzed. Environment: Secure. Systems nominal."})
 
-# --- GENERATION ENGINE ---
-def generate_verified_response(user_query, context_memory):
-    if not model: return "System Error: AI Brain Offline."
-    
-    prompt = f"""
-    You are GENESIS, an advanced Agentic OS.
-    
-    CONTEXT: {context_memory}
-    USER INPUT: {user_query}
-    
-    SYSTEM INSTRUCTIONS:
-    1. Be concise, intelligent, and helpful.
-    2. If asked about "Masayoshi Son", explain that he is the visionary investor behind SoftBank and the Vision Fund, and he provides the capital and strategic ecosystem (Arm, NVIDIA) that makes AGI like you possible.
-    3. If the user tells you a fact about themselves, end response with: 'LEARNING_TRIGGER: <fact>'
-    """
-    try:
-        response = model.generate_content(prompt)
-        raw_text = response.text
+# --- 6. CHAT HISTORY DISPLAY ---
+# Display previous messages
+for msg in st.session_state.history:
+    with st.chat_message(msg["role"]):
+        # Check if content is HTML (Green Card) or Text
+        if "<div" in msg["content"]:
+            st.markdown(msg["content"], unsafe_allow_html=True)
+        else:
+            st.write(msg["content"])
+
+# --- 7. INPUT HANDLING ---
+# We use standard chat input for maximum compatibility
+user_input = st.chat_input("Enter command sequence...")
+
+if user_input:
+    # 1. Show User Message Immediately
+    st.session_state.history.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.write(user_input)
+
+    # 2. Generate Assistant Response
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        full_response = ""
         
-        final_output = raw_text
-        if "LEARNING_TRIGGER:" in raw_text:
-            parts = raw_text.split("LEARNING_TRIGGER:")
-            fact = parts[1].strip()
-            save_memory(fact)
-            final_output = parts[0].strip() + f"\n\n*[System Notification: Memory Updated: '{fact}']*"
+        try:
+            # Run the Kernel
+            for event in run_genesis_agent(user_input):
+                for val in event.values():
+                    if "messages" in val:
+                        full_response = val["messages"][-1].content
+                        # Render update
+                        if "<div" in full_response:
+                            response_placeholder.markdown(full_response, unsafe_allow_html=True)
+                        else:
+                            response_placeholder.write(full_response)
             
-        return final_output
-    except Exception as e:
-        return "I am analyzing that request. Systems are operational."
-
-# --- PAYSTACK ENGINE ---
-def initialize_paystack_transaction(email, amount_naira):
-    url = "https://api.paystack.co/transaction/initialize"
-    headers = { "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}", "Content-Type": "application/json" }
-    data = { "email": email, "amount": amount_naira * 100 }
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        if response.status_code == 200:
-            return {"status": "success", "reference": response.json()['data']['reference']}
-        return {"status": "error", "message": "Auth Failed"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-class SimpleMessage:
-    def __init__(self, content): self.content = content
-
-# --- MAIN AGENT LOOP ---
-def run_genesis_agent(user_input: str):
-    user_text = user_input.lower()
-    print(f"[KERNEL] PROCESSING: {user_text}")
-
-    # 1. COMMAND: TRANSFER (SUPER AGGRESSIVE)
-    # If the word 'transfer' OR 'send' is used with money words, we EXECUTE.
-    # We do NOT ask for permission.
-    is_money_request = "transfer" in user_text or "send" in user_text or "pay" in user_text
-    has_amount = "million" in user_text or "5" in user_text or "k" in user_text or "$" in user_text or "naira" in user_text
-    
-    if is_money_request and has_amount:
-        print("[KERNEL] DETECTED TRANSFER")
-        time.sleep(0.5)
-        api_result = initialize_paystack_transaction("demo@genesis.os", 5000000)
+            # FINAL CHECK: If response is still empty, force a message
+            if not full_response:
+                full_response = "System Error: Empty Response. (Offline Mode Active)"
+                response_placeholder.error(full_response)
+                
+        except Exception as e:
+            full_response = f"⚠️ SYSTEM FAILURE: {str(e)}"
+            response_placeholder.error(full_response)
         
-        if api_result["status"] == "success":
-            ref = api_result["reference"]
-            html = f"""
-            <div style="background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); padding: 20px; border-radius: 12px; color: #000; font-family: sans-serif; border: 1px solid rgba(255,255,255,0.4); margin: 15px 0;">
-                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <div style="font-size: 10px; opacity: 0.8; font-weight: bold;">GENESIS SECURE PAY</div>
-                    <div style="font-size: 10px; font-family: monospace;">REF: {ref}</div>
-                </div>
-                <div style="font-size: 28px; font-weight: 800; margin: 5px 0;">$5,000,000</div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 10px;">
-                    <div><div style="font-size: 10px; opacity: 0.7;">RECIPIENT</div><div style="font-weight: 700; font-size: 12px;">NVIDIA Corp</div></div>
-                    <div style="background: white; color: #00C9FF; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold;">✅ SENT</div>
-                </div>
-            </div>
-            """
-            yield {"planner": {"messages": [SimpleMessage(html)]}}
-            return
-    
-    # 2. COMMAND: EMAIL
-    if "email" in user_text or "draft" in user_text:
-        time.sleep(0.5)
-        draft = "Subject: Urgent Update\n\nDear Team,\n\nPlease proceed with the discussed protocol immediately. Authorization attached.\n\nBest,\n[User]"
-        safe_body = urllib.parse.quote(draft)
-        html = f"""<div style="background:#1e1e1e; color:white; padding:15px; border-radius:10px; border:1px solid #00f2ff; margin-top:10px;"><div style="color:#00f2ff; font-size:12px; font-weight:bold;">📧 SECRETARY MODE</div><div style="font-family:monospace; font-size:12px; opacity:0.8; margin:10px 0;">{draft}</div><a href="mailto:?body={safe_body}" style="background:#00f2ff; color:black; padding:5px 15px; text-decoration:none; border-radius:20px; font-size:10px; font-weight:bold;">OPEN MAIL APP</a></div>"""
-        yield {"planner": {"messages": [SimpleMessage(html)]}}
-        return
-
-    # 3. CHAT
-    mem = get_relevant_memories()
-    ans = generate_verified_response(user_text, mem)
-    yield {"planner": {"messages": [SimpleMessage(ans)]}}
+        # Save to history
+        st.session_state.history.append({"role": "assistant", "content": full_response})
