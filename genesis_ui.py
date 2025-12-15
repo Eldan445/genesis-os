@@ -9,7 +9,7 @@ st.set_page_config(page_title="GENESIS OS", page_icon="🧿", layout="wide")
 try:
     from kernel import run_genesis_agent, text_to_speech_autoplay
 except ImportError:
-    st.error("⚠️ CRITICAL: kernel.py is missing.")
+    st.error("⚠️ CRITICAL: kernel.py is missing. Please check GitHub files.")
     st.stop()
 
 # Mic Check
@@ -23,7 +23,6 @@ except ImportError:
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "history" not in st.session_state: st.session_state.history = []
 if "last_processed" not in st.session_state: st.session_state.last_processed = ""
-# This counter is the secret weapon against looping
 if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
 
 # --- 4. CSS (CYBERPUNK STYLE) ---
@@ -68,28 +67,18 @@ for msg in st.session_state.history:
         if "<div" in msg["content"]: st.markdown(msg["content"], unsafe_allow_html=True)
         else: st.write(msg["content"])
 
-# --- 7. INPUT AREA (ANTI-LOOP MECHANISM) ---
+# --- 7. INPUT AREA (ANTI-LOOP MIC) ---
 c1, c2 = st.columns([1, 8])
 
 voice_val = None
 with c1:
     if mic_available:
-        # THE FIX: We add a number to the key (mic_0, mic_1, mic_2)
-        # This creates a brand new button every time, so it CANNOT remember old text.
         dynamic_key = f"mic_{st.session_state.mic_key}"
+        voice_text = speech_to_text(start_prompt="🎙️", stop_prompt="🛑", just_once=True, key=dynamic_key)
         
-        voice_text = speech_to_text(
-            start_prompt="🎙️", 
-            stop_prompt="🛑", 
-            just_once=True, # Forces it to stop and reset after 1 input
-            key=dynamic_key
-        )
-        
-        # Only accept if it's new text
         if voice_text and voice_text != st.session_state.last_processed:
             voice_val = voice_text
             st.session_state.last_processed = voice_text
-            # Increment key to destroy this button and make a fresh one next time
             st.session_state.mic_key += 1
     else:
         st.caption("No Mic")
@@ -97,7 +86,6 @@ with c1:
 with c2:
     text_val = st.chat_input("Enter command...")
 
-# Prioritize Voice
 final_input = voice_val if voice_val else text_val
 
 if final_input:
@@ -116,10 +104,9 @@ if final_input:
                         if "<div" in full_res: place.markdown(full_res, unsafe_allow_html=True)
                         else: place.write(full_res)
             
-            # 3. VOICE REPLY (TTS)
+            # 3. VOICE REPLY
             audio_html = text_to_speech_autoplay(full_res)
-            if audio_html:
-                st.markdown(audio_html, unsafe_allow_html=True)
+            if audio_html: st.markdown(audio_html, unsafe_allow_html=True)
                 
         except Exception as e:
             full_res = f"System Error: {e}"
@@ -127,6 +114,5 @@ if final_input:
             
         st.session_state.history.append({"role": "assistant", "content": full_res})
     
-    # FORCE REFRESH TO RESET BUTTON (Prevents Loop)
     time.sleep(0.5)
     st.rerun()

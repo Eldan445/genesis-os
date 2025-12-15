@@ -28,32 +28,25 @@ except Exception as e:
 
 # --- 2. VOICE OUTPUT ENGINE (TTS) ---
 def text_to_speech_autoplay(text):
-    # Don't read out HTML/CSS code, just the status
     if "<div" in text: 
         speak_text = "Transaction processed successfully."
     else:
         speak_text = text
 
     try:
-        # Generate Audio
         tts = gTTS(text=speak_text, lang='en')
         filename = "response.mp3"
         tts.save(filename)
-        
-        # Convert to Base64 for HTML embedding
         with open(filename, "rb") as f:
             data = f.read()
             b64 = base64.b64encode(data).decode()
-            
-        # Hidden HTML Audio Player (Autoplay)
         md = f"""
             <audio autoplay="true">
             <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
             </audio>
             """
         return md
-    except Exception as e:
-        return ""
+    except: return ""
 
 # --- 3. HELPER FUNCTIONS ---
 def extract_amount(text):
@@ -67,8 +60,7 @@ def extract_amount(text):
 
 def load_memory():
     if not os.path.exists(MEMORY_FILE): return []
-    try: 
-        with open(MEMORY_FILE, "r") as f: return json.load(f)
+    try: with open(MEMORY_FILE, "r") as f: return json.load(f)
     except: return []
 
 # --- 4. PAYSTACK ENGINE ---
