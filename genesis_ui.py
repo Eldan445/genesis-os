@@ -9,9 +9,10 @@ st.set_page_config(page_title="GENESIS OS", page_icon="🧿", layout="wide")
 try:
     from kernel import run_genesis_agent
 except ImportError:
-    st.error("Kernel Missing")
+    st.error("⚠️ CRITICAL: kernel.py is missing or has errors.")
     st.stop()
 
+# Mic Check
 try:
     from streamlit_mic_recorder import speech_to_text
     mic_available = True
@@ -27,26 +28,39 @@ st.markdown("""
 <style>
     .stApp { background-color: #000000; color: #fff; }
     .stTextInput > div > div > input { background-color: #111; color: #fff; border: 1px solid #333; }
-    .stButton > button { background-color: #00f2ff; color: #000; font-weight: bold; border-radius: 5px; }
+    .stButton > button { background-color: #00f2ff; color: #000; font-weight: bold; border-radius: 5px; width: 100%; }
     div[data-testid="stChatMessage"] { background-color: #111; border: 1px solid #333; }
+    .stChatInput { bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 5. LOGIN SCREEN ---
+# --- 5. LOGIN SCREEN (WITH ACCESS CODE GENERATOR) ---
 if not st.session_state.logged_in:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown("<br><br><h1 style='text-align: center; color: #00f2ff;'>🧿 GENESIS OS</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; opacity: 0.7;'>SECURE AGENTIC INTERFACE</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; opacity: 0.7; letter-spacing: 2px;'>SECURE NEURAL LINK</p>", unsafe_allow_html=True)
         
-        password = st.text_input("ACCESS CODE", type="password")
-        if st.button("INITIALIZE SYSTEM"):
-            if password == "1234":  # SIMPLE PASSWORD FOR DEMO
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("ACCESS DENIED")
-    st.stop()
+        # Access Code Input
+        password = st.text_input("ENTER ACCESS CODE", type="password")
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("INITIALIZE LINK"):
+                if password == "1234":
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("⛔ ACCESS DENIED")
+        
+        with col_b:
+            # THE DEMO KEY GENERATOR
+            if st.button("REQUEST DEMO KEY"):
+                with st.spinner("Authenticating Biometrics..."):
+                    time.sleep(1.5) # Fake loading for effect
+                st.success("ACCESS GRANTED. CODE: 1234")
+                
+    st.stop() # Stop here if not logged in
 
 # --- 6. MAIN INTERFACE ---
 st.markdown("### 🧿 GENESIS OS: ACTIVE")
@@ -96,5 +110,6 @@ if final_input:
             
         st.session_state.history.append({"role": "assistant", "content": full_res})
     
+    # Rerun if voice used to clear state
     if voice_input:
         st.rerun()

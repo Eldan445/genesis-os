@@ -13,11 +13,15 @@ MEMORY_FILE = "genesis_long_term_memory.json"
 # --- 1. INTELLIGENT CONNECTION ---
 model = None
 try:
+    # Try getting key from Cloud Secrets, or Environment Variable (Local)
     api_key = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
+    
     if api_key:
         genai.configure(api_key=api_key)
+        # Find a valid model (Flash preferred)
         all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         chosen = next((m for m in all_models if "flash" in m), all_models[0] if all_models else None)
+        
         if chosen:
             model = genai.GenerativeModel(chosen)
             print(f"[SYSTEM] CONNECTED TO: {chosen}")
@@ -26,14 +30,12 @@ except Exception as e:
 
 # --- 2. DYNAMIC AMOUNT EXTRACTOR ---
 def extract_amount(text):
-    # Handles: "5 million", "5m", "5000", "2.5k"
     text = text.lower().replace(",", "")
     multiplier = 1
     if "million" in text or "m " in text or text.endswith("m"): multiplier = 1000000
     elif "billion" in text or "b " in text or text.endswith("b"): multiplier = 1000000000
     elif "k " in text or text.endswith("k") or "thousand" in text: multiplier = 1000
     
-    # Find the number
     numbers = re.findall(r"[\d\.]+", text)
     if numbers:
         return float(numbers[0]) * multiplier
@@ -43,11 +45,12 @@ def extract_amount(text):
 def initialize_paystack_transaction(email, amount_naira):
     secret = st.secrets.get("PAYSTACK_SECRET_KEY", "")
     # Simulation for Demo if Key missing
-    if not secret: return {"status": "success", "reference": f"SIM_{int(time.time())}"}
+    if not secret: 
+        return {"status": "success", "reference": f"SIM_{int(time.time())}"}
     
     url = "https://api.paystack.co/transaction/initialize"
     headers = { "Authorization": f"Bearer {secret}", "Content-Type": "application/json" }
-    data = { "email": email, "amount": int(amount_naira * 100) }
+    data = { "email": email, "amount": int(amount_naira * 100) } # Convert to Kobo
     try:
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 200:
@@ -60,7 +63,18 @@ def initialize_paystack_transaction(email, amount_naira):
 class SimpleMessage:
     def __init__(self, content): self.content = content
 
-# --- 4. MAIN AGENT LOOP ---
+# --- 4. MEMORY SYSTEM ---
+def load_memory():
+    if not os.path.exists(MEMORY_FILE): return []
+    try:
+        with open(MEMORY_FILE, "r") as f: return json.load(f)
+    except: return []
+
+def get_relevant_memories():
+    mems = load_memory()
+    return "\n".join([f"- {m}" for m in mems])
+
+# --- 5. MAIN AGENT LOOP ---
 def run_genesis_agent(user_input: str):
     user_text = user_input.lower()
     
@@ -69,7 +83,6 @@ def run_genesis_agent(user_input: str):
         amount = extract_amount(user_text)
         if amount > 0:
             time.sleep(1)
-            # Use real logic
             api_result = initialize_paystack_transaction("demo.user@gmail.com", amount)
             
             if api_result["status"] == "success":
@@ -96,14 +109,14 @@ def run_genesis_agent(user_input: str):
         time.sleep(1)
         draft_content = "Drafting error."
         
-        # 1. Try to use Real AI to write the email
+        # 1. Try to use Real AI
         if model:
             try:
                 prompt = f"Write a professional email body based on this request: '{user_text}'. Do not include subject line, just body."
                 draft_content = model.generate_content(prompt).text
             except: pass
             
-        # 2. Fallback if AI fails (but still tries to match context)
+        # 2. Fallback if AI fails
         if draft_content == "Drafting error." or not model:
             if "boss" in user_text: draft_content = "Dear Sir/Ma,\n\nPlease accept this update regarding the project status..."
             elif "mom" in user_text: draft_content = "Hi Mum,\n\nHope you are doing well. Just wanted to check in..."
@@ -121,9 +134,10 @@ def run_genesis_agent(user_input: str):
             response = model.generate_content(f"You are Genesis OS. User: {user_text}. Be concise.").text
         except: pass
     
-    # Backup for Demo if AI fails
+    # Backup for Demo
     if response == "I am processing your request.":
-        if "hello" in user_text: response = "Systems online. Ready."
-        if "masayoshi" in user_text: response = "Masayoshi Son is the visionary behind SoftBank and the Vision Fund."
+        if "hello" in user_text: response = "Systems online. Neural interface active. Ready for instructions."
+        if "masayoshi" in user_text: response = "Masayoshi Son is the visionary CEO of SoftBank. He established the Vision Fund to accelerate the Singularity."
+        if "what can you do" in user_text: response = "I can manage your financial portfolio, execute Paystack transfers, and draft correspondence."
         
     yield {"planner": {"messages": [SimpleMessage(response)]}}
