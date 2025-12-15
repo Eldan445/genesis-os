@@ -22,7 +22,9 @@ except ImportError:
 # --- 3. SESSION STATE ---
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "history" not in st.session_state: st.session_state.history = []
-if "last_voice_input" not in st.session_state: st.session_state.last_voice_input = ""
+if "last_processed" not in st.session_state: st.session_state.last_processed = ""
+# This counter is the secret weapon against looping
+if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
 
 # --- 4. CSS (CYBERPUNK STYLE) ---
 st.markdown("""
@@ -66,23 +68,29 @@ for msg in st.session_state.history:
         if "<div" in msg["content"]: st.markdown(msg["content"], unsafe_allow_html=True)
         else: st.write(msg["content"])
 
-# --- 7. INPUT AREA (AUTO-LISTENING MIC) ---
+# --- 7. INPUT AREA (ANTI-LOOP MECHANISM) ---
 c1, c2 = st.columns([1, 8])
 
 voice_val = None
 with c1:
     if mic_available:
-        # This function listens until silence is detected, then returns text
+        # THE FIX: We add a number to the key (mic_0, mic_1, mic_2)
+        # This creates a brand new button every time, so it CANNOT remember old text.
+        dynamic_key = f"mic_{st.session_state.mic_key}"
+        
         voice_text = speech_to_text(
             start_prompt="🎙️", 
             stop_prompt="🛑", 
-            just_once=False,
-            key="mic"
+            just_once=True, # Forces it to stop and reset after 1 input
+            key=dynamic_key
         )
-        # Check if we have NEW voice input
-        if voice_text and voice_text != st.session_state.last_voice_input:
+        
+        # Only accept if it's new text
+        if voice_text and voice_text != st.session_state.last_processed:
             voice_val = voice_text
-            st.session_state.last_voice_input = voice_text
+            st.session_state.last_processed = voice_text
+            # Increment key to destroy this button and make a fresh one next time
+            st.session_state.mic_key += 1
     else:
         st.caption("No Mic")
 
@@ -109,7 +117,6 @@ if final_input:
                         else: place.write(full_res)
             
             # 3. VOICE REPLY (TTS)
-            # Generate and Play Audio
             audio_html = text_to_speech_autoplay(full_res)
             if audio_html:
                 st.markdown(audio_html, unsafe_allow_html=True)
@@ -120,7 +127,6 @@ if final_input:
             
         st.session_state.history.append({"role": "assistant", "content": full_res})
     
-    # Rerun to refresh state if voice was used
-    if voice_val:
-        time.sleep(0.5)
-        st.rerun()
+    # FORCE REFRESH TO RESET BUTTON (Prevents Loop)
+    time.sleep(0.5)
+    st.rerun()
