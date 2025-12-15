@@ -1,93 +1,100 @@
 import streamlit as st
 import time
-import json
 import os
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(
-    page_title="GENESIS OS",
-    page_icon="🧿",
-    layout="wide"
-)
+st.set_page_config(page_title="GENESIS OS", page_icon="🧿", layout="wide")
 
-# --- 2. CSS STYLING (Mobile Friendly) ---
-st.markdown("""
-<style>
-    .stApp { background-color: #000000; color: #ffffff; }
-    div[data-testid="stChatMessage"] { background-color: #111111; border: 1px solid #333; border-radius: 10px; }
-    /* Fix input box sticking to bottom */
-    .stChatInput { bottom: 10px; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 3. IMPORTS CHECK ---
+# --- 2. IMPORTS & SETUP ---
 try:
     from kernel import run_genesis_agent
 except ImportError:
-    st.error("⚠️ CRITICAL ERROR: kernel.py not found. Please check GitHub.")
+    st.error("Kernel Missing")
     st.stop()
 
-# --- 4. SESSION STATE SETUP ---
-if "history" not in st.session_state:
-    st.session_state.history = []
+try:
+    from streamlit_mic_recorder import speech_to_text
+    mic_available = True
+except ImportError:
+    mic_available = False
 
-# --- 5. HEADER & TOOLS (No Sidebar for Mobile Stability) ---
-st.markdown("### 🧿 GENESIS OS")
+# --- 3. SESSION STATE ---
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+if "history" not in st.session_state: st.session_state.history = []
 
-# Expandable Camera Section (Visual Cortex)
-with st.expander("👁️ OPEN VISUAL CORTEX (CAMERA)", expanded=False):
-    cam = st.camera_input("Scan Environment")
-    if cam:
-        st.success("Image Acquired. Processing...")
-        # Simulate processing for demo
-        time.sleep(1)
-        st.session_state.history.append({"role": "assistant", "content": "Visual data analyzed. Environment: Secure. Systems nominal."})
+# --- 4. CSS (CYBERPUNK STYLE) ---
+st.markdown("""
+<style>
+    .stApp { background-color: #000000; color: #fff; }
+    .stTextInput > div > div > input { background-color: #111; color: #fff; border: 1px solid #333; }
+    .stButton > button { background-color: #00f2ff; color: #000; font-weight: bold; border-radius: 5px; }
+    div[data-testid="stChatMessage"] { background-color: #111; border: 1px solid #333; }
+</style>
+""", unsafe_allow_html=True)
 
-# --- 6. CHAT HISTORY DISPLAY ---
-# Display previous messages
+# --- 5. LOGIN SCREEN ---
+if not st.session_state.logged_in:
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.markdown("<br><br><h1 style='text-align: center; color: #00f2ff;'>🧿 GENESIS OS</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; opacity: 0.7;'>SECURE AGENTIC INTERFACE</p>", unsafe_allow_html=True)
+        
+        password = st.text_input("ACCESS CODE", type="password")
+        if st.button("INITIALIZE SYSTEM"):
+            if password == "1234":  # SIMPLE PASSWORD FOR DEMO
+                st.session_state.logged_in = True
+                st.rerun()
+            else:
+                st.error("ACCESS DENIED")
+    st.stop()
+
+# --- 6. MAIN INTERFACE ---
+st.markdown("### 🧿 GENESIS OS: ACTIVE")
+
+# Chat History
 for msg in st.session_state.history:
     with st.chat_message(msg["role"]):
-        # Check if content is HTML (Green Card) or Text
-        if "<div" in msg["content"]:
-            st.markdown(msg["content"], unsafe_allow_html=True)
-        else:
-            st.write(msg["content"])
+        if "<div" in msg["content"]: st.markdown(msg["content"], unsafe_allow_html=True)
+        else: st.write(msg["content"])
 
-# --- 7. INPUT HANDLING ---
-# We use standard chat input for maximum compatibility
-user_input = st.chat_input("Enter command sequence...")
+# --- 7. INPUT AREA (MIC + TEXT) ---
+c1, c2 = st.columns([1, 8])
 
-if user_input:
-    # 1. Show User Message Immediately
-    st.session_state.history.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.write(user_input)
+voice_input = None
+with c1:
+    if mic_available:
+        # The Mic Button
+        voice_text = speech_to_text(start_prompt="🎤", stop_prompt="🛑", key="mic")
+        if voice_text:
+            voice_input = voice_text
+    else:
+        st.caption("No Mic")
 
-    # 2. Generate Assistant Response
+with c2:
+    text_input = st.chat_input("Enter command...")
+
+final_input = voice_input if voice_input else text_input
+
+if final_input:
+    # 1. User Message
+    st.session_state.history.append({"role": "user", "content": final_input})
+    
+    # 2. Assistant Response
     with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        full_response = ""
-        
+        place = st.empty()
+        full_res = ""
         try:
-            # Run the Kernel
-            for event in run_genesis_agent(user_input):
+            for event in run_genesis_agent(final_input):
                 for val in event.values():
                     if "messages" in val:
-                        full_response = val["messages"][-1].content
-                        # Render update
-                        if "<div" in full_response:
-                            response_placeholder.markdown(full_response, unsafe_allow_html=True)
-                        else:
-                            response_placeholder.write(full_response)
-            
-            # FINAL CHECK: If response is still empty, force a message
-            if not full_response:
-                full_response = "System Error: Empty Response. (Offline Mode Active)"
-                response_placeholder.error(full_response)
-                
+                        full_res = val["messages"][-1].content
+                        if "<div" in full_res: place.markdown(full_res, unsafe_allow_html=True)
+                        else: place.write(full_res)
         except Exception as e:
-            full_response = f"⚠️ SYSTEM FAILURE: {str(e)}"
-            response_placeholder.error(full_response)
-        
-        # Save to history
-        st.session_state.history.append({"role": "assistant", "content": full_response})
+            full_res = f"Error: {e}"
+            place.error(full_res)
+            
+        st.session_state.history.append({"role": "assistant", "content": full_res})
+    
+    if voice_input:
+        st.rerun()

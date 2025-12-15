@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import json
+import re
 import google.generativeai as genai
 import streamlit as st
 import urllib.parse
@@ -9,114 +10,80 @@ import urllib.parse
 # --- CONFIGURATION ---
 MEMORY_FILE = "genesis_long_term_memory.json"
 
-# --- 1. SECURE CONNECTION (WITH OFFLINE BACKUP) ---
+# --- 1. INTELLIGENT CONNECTION ---
 model = None
 try:
-    # Try getting key from Cloud Secrets, then Env, then fail gracefully
     api_key = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     if api_key:
         genai.configure(api_key=api_key)
-        # Attempt to find a valid model
-        try:
-            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            chosen = next((m for m in all_models if "flash" in m), all_models[0] if all_models else None)
-            if chosen:
-                model = genai.GenerativeModel(chosen)
-                print(f"[SYSTEM] CONNECTED TO: {chosen}")
-        except:
-            print("[SYSTEM] MODEL LIST FAILED - USING OFFLINE MODE")
+        all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        chosen = next((m for m in all_models if "flash" in m), all_models[0] if all_models else None)
+        if chosen:
+            model = genai.GenerativeModel(chosen)
+            print(f"[SYSTEM] CONNECTED TO: {chosen}")
 except Exception as e:
-    print(f"[SYSTEM] OFFLINE MODE ACTIVATED: {e}")
+    print(f"[SYSTEM] OFFLINE MODE: {e}")
 
-# --- 2. MEMORY SYSTEM ---
-def load_memory():
-    if not os.path.exists(MEMORY_FILE): return []
-    try:
-        with open(MEMORY_FILE, "r") as f: return json.load(f)
-    except: return []
-
-def save_memory(fact):
-    memories = load_memory()
-    if fact not in memories:
-        memories.append(fact)
-        try:
-            with open(MEMORY_FILE, "w") as f: json.dump(memories, f, indent=4)
-        except: pass
-
-def get_relevant_memories():
-    mems = load_memory()
-    return "\n".join([f"- {m}" for m in mems])
-
-# --- 3. THE "DEMO GOD" RESPONSE ENGINE ---
-# This guarantees you NEVER get a blank response.
-def generate_verified_response(user_query, context_memory):
-    q = user_query.lower() if user_query else ""
+# --- 2. DYNAMIC AMOUNT EXTRACTOR ---
+def extract_amount(text):
+    # Handles: "5 million", "5m", "5000", "2.5k"
+    text = text.lower().replace(",", "")
+    multiplier = 1
+    if "million" in text or "m " in text or text.endswith("m"): multiplier = 1000000
+    elif "billion" in text or "b " in text or text.endswith("b"): multiplier = 1000000000
+    elif "k " in text or text.endswith("k") or "thousand" in text: multiplier = 1000
     
-    # 1. Try Real AI (if connected)
-    if model:
-        try:
-            prompt = f"You are Genesis OS. User said: {user_query}. Context: {context_memory}. Be concise."
-            response = model.generate_content(prompt).text
-            if response: return response
-        except:
-            pass # Silently fail to backup
+    # Find the number
+    numbers = re.findall(r"[\d\.]+", text)
+    if numbers:
+        return float(numbers[0]) * multiplier
+    return 0
 
-    # 2. OFFLINE BACKUP ANSWERS (For Video Demo)
-    if "hello" in q or "hi" in q:
-        return "Systems online. Neural interface active. Ready for instructions."
-    if "masayoshi" in q or "softbank" in q or "son" in q:
-        return "Masayoshi Son is the visionary CEO of SoftBank. He established the Vision Fund to accelerate the Singularity, providing the capital and infrastructure that powers AI systems like myself."
-    if "doing" in q or "status" in q:
-        return "All systems nominal. Functioning at peak efficiency."
-    if "what can you do" in q or "help" in q:
-        return "I can manage your financial portfolio, execute Paystack transfers, draft correspondence, and analyze visual data via the Cortex."
-    
-    # 3. Last Resort Fallback
-    return "I am analyzing your input. Please state your command clearly."
-
-# --- 4. PAYSTACK ENGINE ---
+# --- 3. PAYSTACK ENGINE ---
 def initialize_paystack_transaction(email, amount_naira):
     secret = st.secrets.get("PAYSTACK_SECRET_KEY", "")
-    # If no key, simulate success for DEMO purposes
-    if not secret: 
-        return {"status": "success", "reference": f"DEMO_{int(time.time())}"}
+    # Simulation for Demo if Key missing
+    if not secret: return {"status": "success", "reference": f"SIM_{int(time.time())}"}
     
     url = "https://api.paystack.co/transaction/initialize"
     headers = { "Authorization": f"Bearer {secret}", "Content-Type": "application/json" }
-    data = { "email": email, "amount": amount_naira * 100 }
+    data = { "email": email, "amount": int(amount_naira * 100) }
     try:
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 200:
             res_json = response.json()
             return {"status": "success", "reference": res_json['data']['reference']}
-        return {"status": "error", "message": "API Error"}
+        return {"status": "error", "message": "API Key Error"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 class SimpleMessage:
     def __init__(self, content): self.content = content
 
-# --- 5. MAIN AGENT LOOP ---
+# --- 4. MAIN AGENT LOOP ---
 def run_genesis_agent(user_input: str):
     user_text = user_input.lower()
-
-    # COMMAND: TRANSFER
+    
+    # --- COMMAND: TRANSFER (DYNAMIC) ---
     if "transfer" in user_text or "send" in user_text or "pay" in user_text:
-        if "million" in user_text or "5" in user_text or "naira" in user_text or "$" in user_text:
+        amount = extract_amount(user_text)
+        if amount > 0:
             time.sleep(1)
-            api_result = initialize_paystack_transaction("demo.user@gmail.com", 5000000)
+            # Use real logic
+            api_result = initialize_paystack_transaction("demo.user@gmail.com", amount)
             
             if api_result["status"] == "success":
                 ref = api_result["reference"]
+                formatted_amount = "₦{:,.2f}".format(amount)
                 html = f"""
                 <div style="background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%); padding: 20px; border-radius: 12px; color: #000; font-family: sans-serif; border: 1px solid rgba(255,255,255,0.4); margin: 15px 0;">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
                         <div style="font-size: 10px; opacity: 0.8; font-weight: bold;">GENESIS SECURE PAY</div>
                         <div style="font-size: 10px; font-family: monospace;">REF: {ref}</div>
                     </div>
-                    <div style="font-size: 28px; font-weight: 800; margin: 5px 0;">$5,000,000</div>
+                    <div style="font-size: 28px; font-weight: 800; margin: 5px 0;">{formatted_amount}</div>
                     <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 10px;">
-                        <div><div style="font-size: 10px; opacity: 0.7;">RECIPIENT</div><div style="font-weight: 700; font-size: 12px;">NVIDIA Corp</div></div>
+                        <div><div style="font-size: 10px; opacity: 0.7;">RECIPIENT</div><div style="font-weight: 700; font-size: 12px;">Verified Beneficiary</div></div>
                         <div style="background: white; color: #00C9FF; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold;">✅ SENT</div>
                     </div>
                 </div>
@@ -124,16 +91,39 @@ def run_genesis_agent(user_input: str):
                 yield {"planner": {"messages": [SimpleMessage(html)]}}
                 return
 
-    # COMMAND: EMAIL
+    # --- COMMAND: EMAIL (REAL AI DRAFTING) ---
     if "email" in user_text or "draft" in user_text:
         time.sleep(1)
-        draft = "Subject: Urgent Protocol\n\nAuthorization confirmed. Proceed with the acquisition immediately."
-        safe_body = urllib.parse.quote(draft)
-        html = f"""<div style="background:#1e1e1e; color:white; padding:15px; border-radius:10px; border:1px solid #00f2ff; margin-top:10px;"><div style="color:#00f2ff; font-size:12px; font-weight:bold;">📧 SECRETARY MODE</div><div style="font-family:monospace; font-size:12px; opacity:0.8; margin:10px 0;">{draft}</div><a href="mailto:?body={safe_body}" style="background:#00f2ff; color:black; padding:5px 15px; text-decoration:none; border-radius:20px; font-size:10px; font-weight:bold;">OPEN MAIL APP</a></div>"""
+        draft_content = "Drafting error."
+        
+        # 1. Try to use Real AI to write the email
+        if model:
+            try:
+                prompt = f"Write a professional email body based on this request: '{user_text}'. Do not include subject line, just body."
+                draft_content = model.generate_content(prompt).text
+            except: pass
+            
+        # 2. Fallback if AI fails (but still tries to match context)
+        if draft_content == "Drafting error." or not model:
+            if "boss" in user_text: draft_content = "Dear Sir/Ma,\n\nPlease accept this update regarding the project status..."
+            elif "mom" in user_text: draft_content = "Hi Mum,\n\nHope you are doing well. Just wanted to check in..."
+            else: draft_content = "To Whom It May Concern,\n\nPlease proceed with the requested action immediately."
+
+        safe_body = urllib.parse.quote(draft_content)
+        html = f"""<div style="background:#1e1e1e; color:white; padding:15px; border-radius:10px; border:1px solid #00f2ff; margin-top:10px;"><div style="color:#00f2ff; font-size:12px; font-weight:bold;">📧 INTELLIGENT DRAFT</div><div style="font-family:monospace; font-size:12px; opacity:0.8; margin:10px 0; white-space: pre-wrap;">{draft_content}</div><a href="mailto:?body={safe_body}" style="background:#00f2ff; color:black; padding:5px 15px; text-decoration:none; border-radius:20px; font-size:10px; font-weight:bold;">OPEN MAIL APP</a></div>"""
         yield {"planner": {"messages": [SimpleMessage(html)]}}
         return
 
-    # DEFAULT CHAT
-    mem = get_relevant_memories()
-    ans = generate_verified_response(user_text, mem)
-    yield {"planner": {"messages": [SimpleMessage(ans)]}}
+    # --- DEFAULT CHAT ---
+    response = "I am processing your request."
+    if model:
+        try:
+            response = model.generate_content(f"You are Genesis OS. User: {user_text}. Be concise.").text
+        except: pass
+    
+    # Backup for Demo if AI fails
+    if response == "I am processing your request.":
+        if "hello" in user_text: response = "Systems online. Ready."
+        if "masayoshi" in user_text: response = "Masayoshi Son is the visionary behind SoftBank and the Vision Fund."
+        
+    yield {"planner": {"messages": [SimpleMessage(response)]}}
