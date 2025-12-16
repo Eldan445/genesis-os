@@ -4,14 +4,12 @@ import google.generativeai as genai
 import re
 
 # --- CONFIGURATION ---
-# 1. Load API Key
 try:
+    # Try loading from secrets
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
-    st.toast("✅ Key Loaded & Model Configured", icon="🔋")
 except Exception as e:
-    st.error(f"❌ SETUP ERROR: {str(e)}")
     model = None
 
 class SimpleMessage:
@@ -19,7 +17,6 @@ class SimpleMessage:
         self.content = content
 
 def extract_amount(text):
-    # Simple extraction logic
     text = text.lower().replace(",", "")
     numbers = re.findall(r"[\d\.]+", text)
     return float(numbers[0]) if numbers else 0
@@ -27,12 +24,12 @@ def extract_amount(text):
 def run_genesis_agent(user_input: str):
     user_text = user_input.lower()
     
-    # --- 1. HANDLE "HI" / "HELLO" MANUALLY ---
+    # 1. FIXED RESPONSES
     if user_text in ["hi", "hello", "hey"]:
-        yield {"planner": {"messages": [SimpleMessage("Systems online. Ready for instructions.")]}}
+        yield {"planner": {"messages": [SimpleMessage("Systems online. Ready.")]}}
         return
 
-    # --- 2. HANDLE TRANSFERS ---
+    # 2. TRANSFER COMMAND
     if "transfer" in user_text:
         amount = extract_amount(user_text)
         html = f"""
@@ -43,15 +40,13 @@ def run_genesis_agent(user_input: str):
         yield {"planner": {"messages": [SimpleMessage(html)]}}
         return
 
-    # --- 3. THE "TRUTH TELLER" AI BLOCK ---
+    # 3. AI RESPONSE (TRUTH TELLER)
     if model:
         try:
-            # Try to connect to Google
             response = model.generate_content(user_text)
             yield {"planner": {"messages": [SimpleMessage(response.text)]}}
         except Exception as e:
-            # THIS IS THE FIX: PRINT THE ERROR
-            error_msg = f"⚠️ CRITICAL ERROR: {str(e)}"
-            yield {"planner": {"messages": [SimpleMessage(error_msg)]}}
+            # SHOW THE REAL ERROR
+            yield {"planner": {"messages": [SimpleMessage(f"⚠️ CRITICAL API ERROR: {str(e)}")]}}
     else:
-        yield {"planner": {"messages": [SimpleMessage("⚠️ System Offline: Check API Key Secrets")]}}
+        yield {"planner": {"messages": [SimpleMessage("⚠️ OFFLINE: Key missing in Secrets")]}}
