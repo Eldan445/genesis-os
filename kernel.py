@@ -9,6 +9,13 @@ import urllib.parse
 from gtts import gTTS
 import base64
 
+
+try:
+    secret_key = st.secrets["GOOGLE_API_KEY"]
+    st.success(f"✅ Key Loaded! It starts with: {secret_key[:5]}...")
+except:
+    st.error("❌ NO KEY FOUND. Check your Secrets in Dashboard!")
+
 # --- CONFIGURATION ---
 MEMORY_FILE = "genesis_long_term_memory.json"
 
