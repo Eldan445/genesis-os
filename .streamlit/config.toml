@@ -1,0 +1,10 @@
+[client]
+toolbarMode = "viewer" # Hides the developer options
+
+[theme]
+base = "dark" # Enforce the Hacker/Dark mode
+primaryColor = "#00f2ff" # Cyan Neon
+backgroundColor = "#000000" # Pitch Black
+secondaryBackgroundColor = "#111111" # Dark Grey
+textColor = "#ffffff" 
+font = "monospace"
