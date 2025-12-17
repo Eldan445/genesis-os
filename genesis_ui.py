@@ -26,20 +26,48 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 # --- 3. SETUP THE BRAIN ---
+# --- 2. SETUP THE BRAIN (Smart Filter) ---
 model = None
 status_msg = "❌ Neural Interface Offline"
 
 if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        available_model = "gemini-1.5-flash" 
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                if 'gemini' in m.name and 'flash' in m.name:
-                    available_model = m.name
+        
+        # 1. Get list of all models available to your key
+        all_models = [m.name for m in genai.list_models()]
+        
+        # 2. Define our "Wishlist" of stable, high-limit models in order of preference
+        # We look for specific versions (001, 002) which are usually stable
+        wishlist = [
+            "models/gemini-1.5-flash-002", # Newest Stable Flash
+            "models/gemini-1.5-flash-001", # Older Stable Flash
+            "models/gemini-1.5-flash",     # Generic Flash (failed before, but good to keep as backup)
+            "models/gemini-1.5-pro",       # Pro version (slower but smart)
+            "models/gemini-pro"            # Old Reliable (Gemini 1.0)
+        ]
+        
+        selected_model = None
+        
+        # 3. Pick the first one from our wishlist that exists in your account
+        for candidate in wishlist:
+            if candidate in all_models:
+                selected_model = candidate
+                break
+        
+        # 4. Fallback: If none of the wishlist exists, just grab the first valid gemini model
+        if not selected_model:
+            for m in all_models:
+                if 'gemini' in m and 'generateContent' in genai.get_model(m).supported_generation_methods:
+                    selected_model = m
                     break
-        model = genai.GenerativeModel(available_model)
-        status_msg = "✅ Genesis Neural Network Online"
+        
+        if selected_model:
+            model = genai.GenerativeModel(selected_model)
+            status_msg = f"✅ Genesis Online ({selected_model.replace('models/', '')})"
+        else:
+            status_msg = "❌ No Compatible Gemini Model Found"
+
     except Exception as e:
         status_msg = f"❌ API Error: {str(e)}"
 else:
