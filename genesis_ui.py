@@ -1,7 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-from gtts import gTTS
+import edge_tts  # <--- The New "Jarvis" Voice Engine
+import asyncio   # <--- Required for the new voice
 import genesis_mail 
 import re
 import os
@@ -9,17 +10,14 @@ import io
 
 # --- 1. CONFIGURATION & ICON ---
 icon_path = "genesis_icon.png"
-app_icon = "🧬" # Default Fallback
+app_icon = "🧬" 
 
-# Try to load custom icon
 if os.path.exists(icon_path):
     try:
-        app_icon_img = Image.open(icon_path)
-        app_icon = app_icon_img # Success, we have the image
-    except Exception:
-        app_icon = "🧬" # Failed to open, fallback to emoji
+        app_icon = Image.open(icon_path)
+    except:
+        pass
 
-# Configure Page
 st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 
 # --- 2. SETUP THE BRAIN ---
@@ -36,7 +34,7 @@ if "GOOGLE_API_KEY" in st.secrets:
                     available_model = m.name
                     break
         model = genai.GenerativeModel(available_model)
-        status_msg = "✅ Genesis Voice Systems Online"
+        status_msg = "✅ Genesis Neural Network Online"
     except Exception as e:
         status_msg = f"❌ API Error: {str(e)}"
 else:
@@ -44,13 +42,29 @@ else:
 
 # --- 3. INTELLIGENCE FUNCTIONS ---
 
+async def generate_jarvis_voice(text):
+    """Generates high-quality Neural voice audio."""
+    # Voice Options:
+    # "en-GB-RyanNeural" -> Jarvis style (British Male)
+    # "en-US-ChristopherNeural" -> Calm Professional (US Male)
+    # "en-NG-AbeoNeural" -> Nigerian Accent (Male)
+    voice = "en-GB-RyanNeural" 
+    
+    communicate = edge_tts.Communicate(text, voice)
+    audio_bytes = io.BytesIO()
+    
+    # Write audio to memory
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_bytes.write(chunk["data"])
+            
+    audio_bytes.seek(0)
+    return audio_bytes
+
 def speak(text):
+    """Wrapper to run the async voice generator."""
     try:
-        tts = gTTS(text=text, lang='en', tld='com.ng') 
-        audio_bytes = io.BytesIO()
-        tts.write_to_fp(audio_bytes)
-        audio_bytes.seek(0)
-        return audio_bytes
+        return asyncio.run(generate_jarvis_voice(text))
     except Exception:
         return None
 
@@ -77,7 +91,7 @@ def run_genesis(user_text, image_input=None, audio_input=None):
             parts = clean_text.split(" ", 1)
             if len(parts) < 2: return "⚠️ Format: `Email [address] [message]`", None
             result = genesis_mail.send_email(parts[0], "Genesis Notification", parts[1])
-            return f"✅ {result}", speak("Email dispatched.")
+            return f"✅ {result}", speak("Email dispatched successfully.")
         except Exception as e:
             return f"⚠️ Email Error: {str(e)}", None
 
@@ -96,15 +110,19 @@ def run_genesis(user_text, image_input=None, audio_input=None):
             inputs = []
             if user_text: inputs.append(user_text)
             if image_input: inputs.append(image_input)
+            
+            # --- FIXED AUDIO LOGIC ---
             if audio_input: 
                 audio_bytes = audio_input.getvalue()
                 inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
-                if not user_text: inputs.append("Listen to this audio and respond.")
+                # We give the AI a direct order so it doesn't just transcribe
+                inputs.append("SYSTEM INSTRUCTION: The user provided an audio command. Listen to the intent and execute it or answer the question directly. Do not simply transcribe what they said. Be helpful and concise.")
 
             if not inputs: return "⚠️ No input detected.", None
 
             response = model.generate_content(inputs)
-            audio_response = speak(response.text.replace("*", "")) 
+            clean_text = response.text.replace("*", "") # Clean up text for speech
+            audio_response = speak(clean_text) 
             return response.text, audio_response
         except Exception as e:
             return f"⚠️ **Error:** {str(e)}", None
@@ -114,12 +132,9 @@ def run_genesis(user_text, image_input=None, audio_input=None):
 # --- 4. THE UI LAYOUT ---
 
 with st.sidebar:
-    # --- FIXED IMAGE LOGIC IS HERE ---
     if isinstance(app_icon, str):
-        # If it's the emoji string, show it as text
         st.markdown(f"# {app_icon}")
     else:
-        # If it's the real image, show it as image
         st.image(app_icon, width=80)
         
     st.markdown("### 👁️ Sensor Suite")
