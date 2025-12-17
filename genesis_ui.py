@@ -23,7 +23,7 @@ st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- 2. SETUP THE BRAIN (DYNAMIC AUTO-FINDER) ---
+# --- 2. SETUP THE BRAIN (STRICT MODE) ---
 model = None
 status_msg = "Initializing..."
 
@@ -31,41 +31,25 @@ if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         
-        # 1. Ask Google: "What models do I have?"
-        all_models = list(genai.list_models())
+        # WE TRY ONLY ONE MODEL. NO SEARCHING.
+        # This is the standard, stable Flash model.
+        target_model = "gemini-1.5-flash"
         
-        # 2. Filter: Only keep models that can generate text (Chat)
-        chat_models = [m for m in all_models if 'generateContent' in m.supported_generation_methods]
-        
-        # 3. Selection Logic (The "Smart Filter")
-        selected_model = None
-        
-        # Priority A: Look for "1.5 Flash" (Fast & Stable)
-        for m in chat_models:
-            if "1.5-flash" in m.name and "exp" not in m.name: # Avoid experimental
-                selected_model = m
-                break
-                
-        # Priority B: If no Flash, look for "1.5 Pro"
-        if not selected_model:
-            for m in chat_models:
-                if "1.5-pro" in m.name and "exp" not in m.name:
-                    selected_model = m
-                    break
-        
-        # Priority C: Fallback to anything with "gemini" in the name
-        if not selected_model:
-            for m in chat_models:
-                if "gemini" in m.name and "vision" not in m.name:
-                    selected_model = m
-                    break
-        
-        # 4. Connect
-        if selected_model:
-            model = genai.GenerativeModel(selected_model.name)
-            status_msg = f"✅ Genesis Online ({selected_model.name})"
-        else:
-            status_msg = "❌ No Chat Models Found. Check API Key permissions."
+        try:
+            model = genai.GenerativeModel(target_model)
+            # Test it. If this fails, we catch the specific error.
+            model.generate_content("test") 
+            status_msg = f"✅ Genesis Online ({target_model})"
+        except Exception as e:
+            # If the alias fails, try the specific version number
+            try:
+                target_model = "gemini-1.5-flash-001"
+                model = genai.GenerativeModel(target_model)
+                model.generate_content("test")
+                status_msg = f"✅ Genesis Online ({target_model})"
+            except:
+                status_msg = f"❌ Error: Could not connect to 1.5 Flash. (Error: {e})"
+                model = None # Ensure we don't accidentally use a bad model
 
     except Exception as e:
         status_msg = f"❌ Connection Error: {str(e)}"
@@ -104,8 +88,12 @@ def detect_currency_and_amount(text):
 def run_genesis(user_text, image_input=None, audio_input=None):
     text = user_text.lower().strip() if user_text else ""
     
-    if text in ["status", "hi", "hello"] or model is None:
-        return f"{status_msg}", None
+    # If model is None (because strict mode failed), stop here.
+    if model is None:
+        return f"⚠️ System Offline: {status_msg}", None
+
+    if text in ["status", "hi", "hello"]:
+        return f"{status_msg}. Ready.", None
 
     if text.startswith("email"):
         try:
@@ -127,27 +115,24 @@ def run_genesis(user_text, image_input=None, audio_input=None):
         """
         return html, speak(f"Transfer of {value} completed.")
         
-    if model:
-        try:
-            inputs = []
-            if user_text: inputs.append(user_text)
-            if image_input: inputs.append(image_input)
-            
-            if audio_input: 
-                audio_bytes = audio_input.getvalue()
-                inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
-                inputs.append("SYSTEM INSTRUCTION: Listen to intent and execute/answer. Be concise.")
+    try:
+        inputs = []
+        if user_text: inputs.append(user_text)
+        if image_input: inputs.append(image_input)
+        
+        if audio_input: 
+            audio_bytes = audio_input.getvalue()
+            inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
+            inputs.append("SYSTEM INSTRUCTION: Listen to intent and execute/answer. Be concise.")
 
-            if not inputs: return "⚠️ No input.", None
+        if not inputs: return "⚠️ No input.", None
 
-            response = model.generate_content(inputs)
-            clean_text = response.text.replace("*", "") 
-            audio_response = speak(clean_text) 
-            return response.text, audio_response
-        except Exception as e:
-            return f"⚠️ **Processing Error:** {str(e)}", None
-    else:
-        return f"⚠️ {status_msg}", None
+        response = model.generate_content(inputs)
+        clean_text = response.text.replace("*", "") 
+        audio_response = speak(clean_text) 
+        return response.text, audio_response
+    except Exception as e:
+        return f"⚠️ **Processing Error:** {str(e)}", None
 
 # --- 4. UI ---
 def show_login_screen():
@@ -209,7 +194,7 @@ else:
             st.session_state.logged_in = False
             st.rerun()
 
-    st.title("🧬 Genesis OS")
+    st.title("🧬 Genesis OS (Strict Mode)") # Updated Title
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
