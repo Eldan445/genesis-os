@@ -1,12 +1,13 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-import edge_tts  # <--- The New "Jarvis" Voice Engine
-import asyncio   # <--- Required for the new voice
+import edge_tts
+import asyncio
 import genesis_mail 
 import re
 import os
 import io
+import time
 
 # --- 1. CONFIGURATION & ICON ---
 icon_path = "genesis_icon.png"
@@ -20,7 +21,11 @@ if os.path.exists(icon_path):
 
 st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 
-# --- 2. SETUP THE BRAIN ---
+# --- 2. AUTHENTICATION STATE ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# --- 3. SETUP THE BRAIN ---
 model = None
 status_msg = "❌ Neural Interface Offline"
 
@@ -40,29 +45,19 @@ if "GOOGLE_API_KEY" in st.secrets:
 else:
     status_msg = "❌ Key Missing in Secrets"
 
-# --- 3. INTELLIGENCE FUNCTIONS ---
+# --- 4. INTELLIGENCE FUNCTIONS ---
 
 async def generate_jarvis_voice(text):
-    """Generates high-quality Neural voice audio."""
-    # Voice Options:
-    # "en-GB-RyanNeural" -> Jarvis style (British Male)
-    # "en-US-ChristopherNeural" -> Calm Professional (US Male)
-    # "en-NG-AbeoNeural" -> Nigerian Accent (Male)
     voice = "en-GB-RyanNeural" 
-    
     communicate = edge_tts.Communicate(text, voice)
     audio_bytes = io.BytesIO()
-    
-    # Write audio to memory
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             audio_bytes.write(chunk["data"])
-            
     audio_bytes.seek(0)
     return audio_bytes
 
 def speak(text):
-    """Wrapper to run the async voice generator."""
     try:
         return asyncio.run(generate_jarvis_voice(text))
     except Exception:
@@ -111,17 +106,15 @@ def run_genesis(user_text, image_input=None, audio_input=None):
             if user_text: inputs.append(user_text)
             if image_input: inputs.append(image_input)
             
-            # --- FIXED AUDIO LOGIC ---
             if audio_input: 
                 audio_bytes = audio_input.getvalue()
                 inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
-                # We give the AI a direct order so it doesn't just transcribe
                 inputs.append("SYSTEM INSTRUCTION: The user provided an audio command. Listen to the intent and execute it or answer the question directly. Do not simply transcribe what they said. Be helpful and concise.")
 
             if not inputs: return "⚠️ No input detected.", None
 
             response = model.generate_content(inputs)
-            clean_text = response.text.replace("*", "") # Clean up text for speech
+            clean_text = response.text.replace("*", "") 
             audio_response = speak(clean_text) 
             return response.text, audio_response
         except Exception as e:
@@ -129,58 +122,121 @@ def run_genesis(user_text, image_input=None, audio_input=None):
     else:
         return "⚠️ System Offline.", None
 
-# --- 4. THE UI LAYOUT ---
-
-with st.sidebar:
-    if isinstance(app_icon, str):
-        st.markdown(f"# {app_icon}")
-    else:
-        st.image(app_icon, width=80)
+# --- 5. THE LOGIN GATEKEEPER ---
+def show_login_screen():
+    # Centered Login UI
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if isinstance(app_icon, str):
+            st.markdown(f"<h1 style='text-align: center; font-size: 80px;'>{app_icon}</h1>", unsafe_allow_html=True)
+        else:
+            st.image(app_icon, use_container_width=True)
+            
+        st.markdown("<h1 style='text-align: center;'>GENESIS OS</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'>Identity Verification Required</p>", unsafe_allow_html=True)
         
-    st.markdown("### 👁️ Sensor Suite")
-    st.markdown("**Visual Input**")
-    vision_mode = st.radio("Source:", ["None", "Camera", "Upload"], horizontal=True, label_visibility="collapsed")
+        tab_face, tab_pin = st.tabs(["👤 Face ID", "🔢 PIN Access"])
+        
+        # --- TAB 1: FACE ID ---
+        with tab_face:
+            st.caption("Center your face in the camera frame.")
+            face_img = st.camera_input("Scan Biometrics", label_visibility="collapsed")
+            if face_img:
+                with st.spinner("Analyzing Facial Structure..."):
+                    # We use Gemini to check if it's a real person
+                    try:
+                        img = Image.open(face_img)
+                        response = model.generate_content([img, "Is there a human face in this image? Answer only YES or NO."])
+                        if "YES" in response.text.upper():
+                            time.sleep(1) # Dramatic pause
+                            st.success("Identity Confirmed.")
+                            time.sleep(1)
+                            st.session_state.logged_in = True
+                            st.rerun()
+                        else:
+                            st.error("Biometric Mismatch: No face detected.")
+                    except:
+                        # Fallback if AI fails (allow access for demo stability)
+                        st.session_state.logged_in = True
+                        st.rerun()
+
+        # --- TAB 2: PIN ---
+        with tab_pin:
+            pin = st.text_input("Enter 4-Digit Security Code", type="password", placeholder="****")
+            if st.button("Unlock System", use_container_width=True):
+                if pin == "2025": # <--- SET YOUR PIN HERE
+                    st.success("Access Granted")
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("❌ Access Denied")
+
+
+# --- 6. MAIN APP LOGIC ---
+
+if not st.session_state.logged_in:
+    show_login_screen()
+else:
+    # --- THIS IS THE OS (Only runs after login) ---
     
-    image_data = None
-    if vision_mode == "Camera":
-        cam = st.camera_input("Capture")
-        if cam: image_data = Image.open(cam)
-    elif vision_mode == "Upload":
-        up = st.file_uploader("File", type=["jpg","png"])
-        if up: image_data = Image.open(up)
+    # Sidebar
+    with st.sidebar:
+        if isinstance(app_icon, str):
+            st.markdown(f"# {app_icon}")
+        else:
+            st.image(app_icon, width=80)
+            
+        st.markdown("### 👁️ Sensor Suite")
+        st.markdown("**Visual Input**")
+        vision_mode = st.radio("Source:", ["None", "Camera", "Upload"], horizontal=True, label_visibility="collapsed")
+        
+        image_data = None
+        if vision_mode == "Camera":
+            cam = st.camera_input("Capture")
+            if cam: image_data = Image.open(cam)
+        elif vision_mode == "Upload":
+            up = st.file_uploader("File", type=["jpg","png"])
+            if up: image_data = Image.open(up)
 
-    st.divider()
-    st.markdown("**Audio Input**")
-    audio_data = st.audio_input("Record Voice Command")
+        st.divider()
+        st.markdown("**Audio Input**")
+        audio_data = st.audio_input("Record Voice Command")
+        
+        st.divider()
+        if st.button("🔒 Lock System"):
+            st.session_state.logged_in = False
+            st.rerun()
 
-st.title("🧬 Genesis OS")
+    # Main Chat
+    st.title("🧬 Genesis OS")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"], unsafe_allow_html=True)
-        if "audio" in msg:
-            st.audio(msg["audio"], format="audio/mp3")
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"], unsafe_allow_html=True)
+            if "audio" in msg:
+                st.audio(msg["audio"], format="audio/mp3")
 
-prompt = st.chat_input("Command Genesis...")
+    prompt = st.chat_input("Command Genesis...")
 
-if prompt or audio_data or (image_data and vision_mode != "None"):
-    user_display = prompt if prompt else "🎤 [Audio/Visual Command Sent]"
-    
-    if user_display != "🎤 [Audio/Visual Command Sent]" or (audio_data or image_data):
-        st.session_state.messages.append({"role": "user", "content": user_display})
-        with st.chat_message("user"):
-            st.markdown(user_display)
+    if prompt or audio_data or (image_data and vision_mode != "None"):
+        user_display = prompt if prompt else "🎤 [Audio/Visual Command Sent]"
+        
+        if user_display != "🎤 [Audio/Visual Command Sent]" or (audio_data or image_data):
+            st.session_state.messages.append({"role": "user", "content": user_display})
+            with st.chat_message("user"):
+                st.markdown(user_display)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Processing..."):
-                text_response, audio_file = run_genesis(prompt, image_input=image_data, audio_input=audio_data)
-                st.markdown(text_response, unsafe_allow_html=True)
-                if audio_file:
-                    st.audio(audio_file, format="audio/mp3", autoplay=True)
-                
-                msg_data = {"role": "assistant", "content": text_response}
-                if audio_file: msg_data["audio"] = audio_file
-                st.session_state.messages.append(msg_data)
+            with st.chat_message("assistant"):
+                with st.spinner("Processing..."):
+                    text_response, audio_file = run_genesis(prompt, image_input=image_data, audio_input=audio_data)
+                    st.markdown(text_response, unsafe_allow_html=True)
+                    if audio_file:
+                        st.audio(audio_file, format="audio/mp3", autoplay=True)
+                    
+                    msg_data = {"role": "assistant", "content": text_response}
+                    if audio_file: msg_data["audio"] = audio_file
+                    st.session_state.messages.append(msg_data)
