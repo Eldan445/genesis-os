@@ -25,8 +25,7 @@ st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- 3. SETUP THE BRAIN ---
-# --- 2. SETUP THE BRAIN (Smart Filter) ---
+# --- 3. SETUP THE BRAIN (STABLE MODE) ---
 model = None
 status_msg = "❌ Neural Interface Offline"
 
@@ -34,40 +33,38 @@ if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         
-        # 1. Get list of all models available to your key
-        all_models = [m.name for m in genai.list_models()]
-        
-        # 2. Define our "Wishlist" of stable, high-limit models in order of preference
-        # We look for specific versions (001, 002) which are usually stable
-        wishlist = [
-            "models/gemini-1.5-flash-002", # Newest Stable Flash
-            "models/gemini-1.5-flash-001", # Older Stable Flash
-            "models/gemini-1.5-flash",     # Generic Flash (failed before, but good to keep as backup)
-            "models/gemini-1.5-pro",       # Pro version (slower but smart)
-            "models/gemini-pro"            # Old Reliable (Gemini 1.0)
+        # --- THE FIX: PRIORITY LIST ---
+        # We look for these specific STABLE models first.
+        # We avoid generic "gemini-flash" because it might point to experimental versions.
+        priority_models = [
+            "gemini-1.5-flash-002", # Newest Stable
+            "gemini-1.5-flash-001", # Older Stable
+            "gemini-1.5-flash",     # Standard Alias
+            "gemini-1.5-pro",       # Backup Pro
         ]
         
-        selected_model = None
+        selected_model_name = None
+        available_models = [m.name.replace("models/", "") for m in genai.list_models()]
         
-        # 3. Pick the first one from our wishlist that exists in your account
-        for candidate in wishlist:
-            if candidate in all_models:
-                selected_model = candidate
+        # Check our priority list against what Google offers
+        for pm in priority_models:
+            if pm in available_models:
+                selected_model_name = pm
                 break
         
-        # 4. Fallback: If none of the wishlist exists, just grab the first valid gemini model
-        if not selected_model:
-            for m in all_models:
-                if 'gemini' in m and 'generateContent' in genai.get_model(m).supported_generation_methods:
-                    selected_model = m
+        # Fallback: If exact matches fail, take the first available Gemini model
+        if not selected_model_name:
+            for am in available_models:
+                if "gemini" in am and "vision" not in am: # Avoid vision-only models
+                    selected_model_name = am
                     break
-        
-        if selected_model:
-            model = genai.GenerativeModel(selected_model)
-            status_msg = f"✅ Genesis Online ({selected_model.replace('models/', '')})"
-        else:
-            status_msg = "❌ No Compatible Gemini Model Found"
 
+        if selected_model_name:
+            model = genai.GenerativeModel(selected_model_name)
+            status_msg = f"✅ Genesis Online ({selected_model_name})"
+        else:
+            status_msg = "❌ No Stable Model Found"
+            
     except Exception as e:
         status_msg = f"❌ API Error: {str(e)}"
 else:
@@ -152,7 +149,6 @@ def run_genesis(user_text, image_input=None, audio_input=None):
 
 # --- 5. THE LOGIN GATEKEEPER ---
 def show_login_screen():
-    # Centered Login UI
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -166,49 +162,43 @@ def show_login_screen():
         
         tab_face, tab_pin = st.tabs(["👤 Face ID", "🔢 PIN Access"])
         
-        # --- TAB 1: FACE ID ---
         with tab_face:
             st.caption("Center your face in the camera frame.")
             face_img = st.camera_input("Scan Biometrics", label_visibility="collapsed")
             if face_img:
                 with st.spinner("Analyzing Facial Structure..."):
-                    # We use Gemini to check if it's a real person
                     try:
                         img = Image.open(face_img)
-                        response = model.generate_content([img, "Is there a human face in this image? Answer only YES or NO."])
+                        # Minimal request to save quota
+                        response = model.generate_content([img, "Is this a person? YES or NO."])
                         if "YES" in response.text.upper():
-                            time.sleep(1) # Dramatic pause
+                            time.sleep(1) 
                             st.success("Identity Confirmed.")
                             time.sleep(1)
                             st.session_state.logged_in = True
                             st.rerun()
                         else:
-                            st.error("Biometric Mismatch: No face detected.")
+                            st.error("Biometric Mismatch.")
                     except:
-                        # Fallback if AI fails (allow access for demo stability)
+                        # Fallback for quota errors
                         st.session_state.logged_in = True
                         st.rerun()
 
-        # --- TAB 2: PIN ---
         with tab_pin:
             pin = st.text_input("Enter 4-Digit Security Code", type="password", placeholder="****")
             if st.button("Unlock System", use_container_width=True):
-                if pin == "2025": # <--- SET YOUR PIN HERE
+                if pin == "2025": 
                     st.success("Access Granted")
                     st.session_state.logged_in = True
                     st.rerun()
                 else:
                     st.error("❌ Access Denied")
 
-
 # --- 6. MAIN APP LOGIC ---
 
 if not st.session_state.logged_in:
     show_login_screen()
 else:
-    # --- THIS IS THE OS (Only runs after login) ---
-    
-    # Sidebar
     with st.sidebar:
         if isinstance(app_icon, str):
             st.markdown(f"# {app_icon}")
@@ -236,7 +226,6 @@ else:
             st.session_state.logged_in = False
             st.rerun()
 
-    # Main Chat
     st.title("🧬 Genesis OS")
 
     if "messages" not in st.session_state:
