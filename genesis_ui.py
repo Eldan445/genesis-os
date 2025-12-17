@@ -23,7 +23,7 @@ st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- 2. SETUP THE BRAIN (HARDCODED STABLE) ---
+# --- 2. SETUP THE BRAIN (DYNAMIC AUTO-FINDER) ---
 model = None
 status_msg = "Initializing..."
 
@@ -31,21 +31,41 @@ if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         
-        # --- THE FIX IS HERE ---
-        # No searching. No loops. We force the STABLE model.
-        # This model (1.5 Flash) has a high limit (15 req/min).
-        model_name = "gemini-1.0-flash"
+        # 1. Ask Google: "What models do I have?"
+        all_models = list(genai.list_models())
         
-        try:
-            model = genai.GenerativeModel(model_name)
-            # Send a tiny silent ping to ensure it works
-            model.generate_content("test")
-            status_msg = f"✅ Genesis Online ({model_name})"
-        except:
-            # If 1.5 Flash fails, fallback to Old Reliable (1.0 Pro)
-            fallback = "gemini-pro"
-            model = genai.GenerativeModel(fallback)
-            status_msg = f"✅ Genesis Online (Backup: {fallback})"
+        # 2. Filter: Only keep models that can generate text (Chat)
+        chat_models = [m for m in all_models if 'generateContent' in m.supported_generation_methods]
+        
+        # 3. Selection Logic (The "Smart Filter")
+        selected_model = None
+        
+        # Priority A: Look for "1.5 Flash" (Fast & Stable)
+        for m in chat_models:
+            if "1.5-flash" in m.name and "exp" not in m.name: # Avoid experimental
+                selected_model = m
+                break
+                
+        # Priority B: If no Flash, look for "1.5 Pro"
+        if not selected_model:
+            for m in chat_models:
+                if "1.5-pro" in m.name and "exp" not in m.name:
+                    selected_model = m
+                    break
+        
+        # Priority C: Fallback to anything with "gemini" in the name
+        if not selected_model:
+            for m in chat_models:
+                if "gemini" in m.name and "vision" not in m.name:
+                    selected_model = m
+                    break
+        
+        # 4. Connect
+        if selected_model:
+            model = genai.GenerativeModel(selected_model.name)
+            status_msg = f"✅ Genesis Online ({selected_model.name})"
+        else:
+            status_msg = "❌ No Chat Models Found. Check API Key permissions."
 
     except Exception as e:
         status_msg = f"❌ Connection Error: {str(e)}"
