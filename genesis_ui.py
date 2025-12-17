@@ -23,7 +23,7 @@ st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- 2. SETUP THE BRAIN (STRICT MODE) ---
+# --- 2. SETUP THE BRAIN (UNIVERSAL AUTO-PILOT) ---
 model = None
 status_msg = "Initializing..."
 
@@ -31,25 +31,33 @@ if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         
-        # WE TRY ONLY ONE MODEL. NO SEARCHING.
-        # This is the standard, stable Flash model.
-        target_model = "gemini-1.5-flash"
+        # 1. DOWNLOAD THE LIST OF AVAILABLE MODELS
+        # We don't guess. We ask exactly what is allowed.
+        all_models = list(genai.list_models())
         
-        try:
-            model = genai.GenerativeModel(target_model)
-            # Test it. If this fails, we catch the specific error.
-            model.generate_content("test") 
-            status_msg = f"✅ Genesis Online ({target_model})"
-        except Exception as e:
-            # If the alias fails, try the specific version number
-            try:
-                target_model = "gemini-1.5-flash-001"
-                model = genai.GenerativeModel(target_model)
-                model.generate_content("test")
-                status_msg = f"✅ Genesis Online ({target_model})"
-            except:
-                status_msg = f"❌ Error: Could not connect to 1.5 Flash. (Error: {e})"
-                model = None # Ensure we don't accidentally use a bad model
+        # 2. FILTER FOR CHAT MODELS
+        # We only want models that can speak (generateContent).
+        # We EXCLUDE the "Experimental" ones (gemini-2.0-flash-exp) to avoid the quota trap.
+        valid_models = []
+        for m in all_models:
+            if 'generateContent' in m.supported_generation_methods:
+                if "gemini" in m.name and "exp" not in m.name and "vision" not in m.name:
+                    valid_models.append(m.name)
+        
+        # 3. PICK THE WINNER
+        # We take the first one on the list.
+        if valid_models:
+            # We try to prioritize 1.5 Flash if it exists in the list
+            selected_name = valid_models[0] # Default to first one
+            for m in valid_models:
+                if "1.5-flash" in m:
+                    selected_name = m
+                    break
+            
+            model = genai.GenerativeModel(selected_name)
+            status_msg = f"✅ Genesis Online ({selected_name})"
+        else:
+            status_msg = f"❌ No Valid Models Found. (Google returned: {[m.name for m in all_models]})"
 
     except Exception as e:
         status_msg = f"❌ Connection Error: {str(e)}"
@@ -88,7 +96,7 @@ def detect_currency_and_amount(text):
 def run_genesis(user_text, image_input=None, audio_input=None):
     text = user_text.lower().strip() if user_text else ""
     
-    # If model is None (because strict mode failed), stop here.
+    # If model is None, stop here.
     if model is None:
         return f"⚠️ System Offline: {status_msg}", None
 
@@ -194,7 +202,7 @@ else:
             st.session_state.logged_in = False
             st.rerun()
 
-    st.title("🧬 Genesis OS (Strict Mode)") # Updated Title
+    st.title("🧬 Genesis OS") # Restored Title
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
