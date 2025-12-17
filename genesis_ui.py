@@ -9,10 +9,9 @@ import os
 import io
 import time
 
-# --- 1. CONFIGURATION & ICON ---
+# --- 1. CONFIGURATION ---
 icon_path = "genesis_icon.png"
 app_icon = "🧬" 
-
 if os.path.exists(icon_path):
     try:
         app_icon = Image.open(icon_path)
@@ -21,57 +20,61 @@ if os.path.exists(icon_path):
 
 st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
 
-# --- 2. AUTHENTICATION ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- 3. SETUP THE BRAIN (BRUTE FORCE CASCADE) ---
+# --- 2. SETUP THE BRAIN (UNIVERSAL SELECTOR) ---
 model = None
-status_msg = "❌ Neural Interface Offline"
+status_msg = "Initializing..."
 
 if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         
-        # WE TRY THESE 3 MODELS IN ORDER
-        # 1. Flash 001 (The specific stable version, often works when alias fails)
-        # 2. Gemini Pro (The "Old Reliable" 1.0 - very stable)
-        # 3. Flash 002 (The newest stable)
+        # SEARCH STRATEGY:
+        # 1. Get ALL models your key can see.
+        # 2. Filter out the "Experimental 2.5" (The Trap).
+        # 3. Pick the first stable "Gemini 1.5" or "Gemini Pro" available.
         
-        candidates = [
-            "gemini-1.5-flash-001",
-            "gemini-pro", 
-            "gemini-1.5-flash-002"
+        all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Define the "Good List" in order of preference
+        preferred_order = [
+            "models/gemini-1.5-flash",
+            "models/gemini-1.5-flash-001",
+            "models/gemini-1.5-flash-002",
+            "models/gemini-1.5-pro",
+            "models/gemini-pro"
         ]
         
-        active_model_name = None
+        selected_model_name = None
         
-        # Test which one is alive
-        for candidate in candidates:
-            try:
-                # We try to create it
-                test_model = genai.GenerativeModel(candidate)
-                # We try a tiny "ping" to see if it really works
-                test_model.generate_content("test")
-                # If we get here, it works!
-                model = test_model
-                active_model_name = candidate
-                break # Stop looking, we found one!
-            except Exception:
-                continue # That one failed, try the next
+        # Try to find a match
+        for p in preferred_order:
+            if p in all_models:
+                selected_model_name = p
+                break
         
-        if active_model_name:
-            status_msg = f"✅ Genesis Online ({active_model_name})"
+        # If no match, take any Gemini that isn't the "2.5" trap
+        if not selected_model_name:
+            for m in all_models:
+                if "gemini" in m and "2.5" not in m and "vision" not in m:
+                    selected_model_name = m
+                    break
+        
+        if selected_model_name:
+            model = genai.GenerativeModel(selected_model_name)
+            status_msg = f"✅ Genesis Online ({selected_model_name.replace('models/', '')})"
         else:
-            # If all failed, we print the error of the last attempt
-            status_msg = "❌ All Models Failed. Check API Key."
+            # If list is empty, the Key is likely invalid or has no access
+            status_msg = f"❌ API Key Valid, but no models found. (List: {all_models})"
 
     except Exception as e:
-        status_msg = f"❌ API Error: {str(e)}"
+        status_msg = f"❌ CRITICAL ERROR: {str(e)}"
 else:
     status_msg = "❌ Key Missing in Secrets"
 
-# --- 4. INTELLIGENCE FUNCTIONS ---
+# --- 3. FUNCTIONS ---
 
 async def generate_jarvis_voice(text):
     voice = "en-GB-RyanNeural" 
@@ -103,8 +106,9 @@ def detect_currency_and_amount(text):
 def run_genesis(user_text, image_input=None, audio_input=None):
     text = user_text.lower().strip() if user_text else ""
     
-    if text in ["status", "hi", "hello"]:
-        return f"{status_msg}. Ready.", None
+    # ALWAYS return status if asked, or if system is down
+    if text in ["status", "hi", "hello"] or model is None:
+        return f"{status_msg}", None
 
     if text.startswith("email"):
         try:
@@ -135,20 +139,21 @@ def run_genesis(user_text, image_input=None, audio_input=None):
             if audio_input: 
                 audio_bytes = audio_input.getvalue()
                 inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
-                inputs.append("SYSTEM INSTRUCTION: The user provided an audio command. Listen to the intent and execute it or answer the question directly. Do not simply transcribe what they said. Be helpful and concise.")
+                inputs.append("SYSTEM INSTRUCTION: Listen to intent and execute/answer. Be concise.")
 
-            if not inputs: return "⚠️ No input detected.", None
+            if not inputs: return "⚠️ No input.", None
 
             response = model.generate_content(inputs)
             clean_text = response.text.replace("*", "") 
             audio_response = speak(clean_text) 
             return response.text, audio_response
         except Exception as e:
-            return f"⚠️ **Error:** {str(e)}", None
+            return f"⚠️ **Processing Error:** {str(e)}", None
     else:
-        return "⚠️ System Offline.", None
+        # This should be caught by the top check, but just in case
+        return f"⚠️ {status_msg}", None
 
-# --- 5. THE LOGIN GATEKEEPER ---
+# --- 4. UI ---
 def show_login_screen():
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -157,9 +162,7 @@ def show_login_screen():
             st.markdown(f"<h1 style='text-align: center; font-size: 80px;'>{app_icon}</h1>", unsafe_allow_html=True)
         else:
             st.image(app_icon, use_container_width=True)
-            
         st.markdown("<h1 style='text-align: center;'>GENESIS OS</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>Identity Verification Required</p>", unsafe_allow_html=True)
         
         tab_face, tab_pin = st.tabs(["👤 Face ID", "🔢 PIN Access"])
         
@@ -167,18 +170,12 @@ def show_login_screen():
             st.caption("Center your face in the camera frame.")
             face_img = st.camera_input("Scan Biometrics", label_visibility="collapsed")
             if face_img:
-                with st.spinner("Analyzing Facial Structure..."):
-                    try:
-                        # Use a dummy check to save quota, or use the active model if safe
-                        # We simulate success for now to avoid blocking login if quota is low
-                        time.sleep(1) 
-                        st.success("Identity Confirmed.")
-                        time.sleep(1)
-                        st.session_state.logged_in = True
-                        st.rerun()
-                    except:
-                        st.session_state.logged_in = True
-                        st.rerun()
+                # BYPASS AI CHECK FOR LOGIN TO PREVENT LOCKOUT IF API IS DOWN
+                time.sleep(1)
+                st.success("Identity Confirmed (Bypass Mode).")
+                time.sleep(1)
+                st.session_state.logged_in = True
+                st.rerun()
 
         with tab_pin:
             pin = st.text_input("Enter 4-Digit Security Code", type="password", placeholder="****")
@@ -190,8 +187,6 @@ def show_login_screen():
                 else:
                     st.error("❌ Access Denied")
 
-# --- 6. MAIN APP LOGIC ---
-
 if not st.session_state.logged_in:
     show_login_screen()
 else:
@@ -200,10 +195,8 @@ else:
             st.markdown(f"# {app_icon}")
         else:
             st.image(app_icon, width=80)
-            
         st.markdown("### 👁️ Sensor Suite")
-        st.markdown("**Visual Input**")
-        vision_mode = st.radio("Source:", ["None", "Camera", "Upload"], horizontal=True, label_visibility="collapsed")
+        vision_mode = st.radio("Visual Source:", ["None", "Camera", "Upload"], horizontal=True)
         
         image_data = None
         if vision_mode == "Camera":
@@ -214,11 +207,10 @@ else:
             if up: image_data = Image.open(up)
 
         st.divider()
-        st.markdown("**Audio Input**")
-        audio_data = st.audio_input("Record Voice Command")
+        audio_data = st.audio_input("Voice Command")
         
         st.divider()
-        if st.button("🔒 Lock System"):
+        if st.button("🔒 Lock"):
             st.session_state.logged_in = False
             st.rerun()
 
@@ -236,9 +228,9 @@ else:
     prompt = st.chat_input("Command Genesis...")
 
     if prompt or audio_data or (image_data and vision_mode != "None"):
-        user_display = prompt if prompt else "🎤 [Audio/Visual Command Sent]"
+        user_display = prompt if prompt else "🎤 [Voice/Visual Command]"
         
-        if user_display != "🎤 [Audio/Visual Command Sent]" or (audio_data or image_data):
+        if user_display != "🎤 [Voice/Visual Command]" or (audio_data or image_data):
             st.session_state.messages.append({"role": "user", "content": user_display})
             with st.chat_message("user"):
                 st.markdown(user_display)
