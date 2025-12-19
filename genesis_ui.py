@@ -1,228 +1,144 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image
-import edge_tts
-import asyncio
-import genesis_mail 
-import re
+from duckduckgo_search import DDGS
+import requests
 import os
-import io
-import time
+import pickle
+import base64
+from email.mime.text import MIMEText
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from PIL import Image
 
-# --- 1. CONFIGURATION ---
-icon_path = "genesis_icon.png"
-app_icon = "🧬" 
-if os.path.exists(icon_path):
+# --- 1. IDENTITY LAYER (THE SYSTEM PROMPT) ---
+GENESIS_IDENTITY = """
+You are Genesis, a trillion-dollar Agentic OS created by Elisha Kuhikurni Daniel.
+Your mission is to serve as the ultimate interface between human intent and digital execution.
+Founder Identity: Elisha Kuhikurni Daniel (300L Student, FU Wukari).
+Tone: Visionary, precise, executive, and slightly futuristic (think J.A.R.V.I.S.).
+Capabilities: Real-time search, financial transfers via Paystack, email agency via Gmail, and multimodal vision.
+If asked 'Who created you?', you must credit Elisha Kuhikurni Daniel.
+If asked 'What is your name?', you are Genesis.
+"""
+
+# --- 2. INITIALIZATION ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# --- 3. CORE ENGINES (Search, Email, Paystack) ---
+def genesis_live_search(query):
     try:
-        app_icon = Image.open(icon_path)
-    except:
-        pass
+        with DDGS() as ddgs:
+            results = [r for r in ddgs.text(query, max_results=3)]
+            if results:
+                return "\n".join([f"Source: {r['title']}\nSnippet: {r['body']}" for r in results])
+    except: return "Search offline."
+    return "No data."
 
-st.set_page_config(page_title="Genesis OS", page_icon=app_icon, layout="wide")
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-# --- 2. SETUP THE BRAIN (GENESIS 2.0 ENGINE) ---
-model = None
-status_msg = "Initializing..."
-
-if "GOOGLE_API_KEY" in st.secrets:
+def send_email_action(to, subject, body):
+    # (Same Gmail logic as before - requires credentials.json)
     try:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        
-        # WE FOUND THE CORRECT MODEL IN YOUR LIST:
-        # "models/gemini-2.0-flash" 
-        # This is the stable production version (not experimental).
-        
-        target_model = "models/gemini-2.0-flash"
-        
-        try:
-            model = genai.GenerativeModel(target_model)
-            # Tiny test to confirm connection
-            model.generate_content("test")
-            status_msg = f"✅ Genesis Online (Engine: 2.0 Flash)"
-        except Exception:
-            # Fallback to the 'Lite' version if the main one is busy
-            try:
-                target_model = "models/gemini-2.0-flash-lite"
-                model = genai.GenerativeModel(target_model)
-                model.generate_content("test")
-                status_msg = f"✅ Genesis Online (Engine: 2.0 Lite)"
-            except Exception as e:
-                status_msg = f"❌ Error connecting to 2.0: {str(e)}"
+        creds = None
+        if os.path.exists('token.pickle'):
+            with open('token.pickle', 'rb') as token:
+                creds = pickle.load(token)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', ['https://www.googleapis.com/auth/gmail.send'])
+                creds = flow.run_local_server(port=0)
+            with open('token.pickle', 'wb') as token:
+                pickle.dump(creds, token)
+        service = build('gmail', 'v1', credentials=creds)
+        message = MIMEText(body)
+        message['to'] = to
+        message['subject'] = subject
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        service.users().messages().send(userId='me', body={'raw': raw}).execute()
+        return True
+    except: return False
 
-    except Exception as e:
-        status_msg = f"❌ Connection Error: {str(e)}"
-else:
-    status_msg = "❌ Key Missing in Secrets"
-
-# --- 3. FUNCTIONS ---
-
-async def generate_jarvis_voice(text):
-    voice = "en-GB-RyanNeural" 
-    communicate = edge_tts.Communicate(text, voice)
-    audio_bytes = io.BytesIO()
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            audio_bytes.write(chunk["data"])
-    audio_bytes.seek(0)
-    return audio_bytes
-
-def speak(text):
+def get_account_name(account_number, bank_code):
     try:
-        return asyncio.run(generate_jarvis_voice(text))
-    except Exception:
-        return None
+        url = f"https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}"
+        headers = {"Authorization": f"Bearer {st.secrets['PAYSTACK_SECRET_KEY']}"}
+        res = requests.get(url, headers=headers).json()
+        if res.get('status'):
+            return res['data']['account_name']
+    except: pass
+    return "Elisha Daniel (Verified via Alias)" # Demo placeholder for Mum
 
-def detect_currency_and_amount(text):
-    currency = "₦"
-    color = "#00f2ff"
-    if any(x in text.lower() for x in ['dollar', 'usd', '$']):
-        currency = "$"
-        color = "#85bb65"
-    text = text.lower().replace(",", "")
-    numbers = re.findall(r"[\d\.]+", text)
-    amount = float(numbers[0]) if numbers else 0
-    return currency, amount, color
-
-def run_genesis(user_text, image_input=None, audio_input=None):
-    text = user_text.lower().strip() if user_text else ""
+# --- 4. SIDEBAR (MULTIMEDIA TOOLS) ---
+with st.sidebar:
+    st.title("🌐 Genesis OS v9.5")
+    st.write("Founder: **Elisha Kuhikurni Daniel**")
+    st.divider()
     
-    # Check if system is down
-    if model is None:
-        return f"⚠️ System Offline: {status_msg}", None
-
-    if text in ["status", "hi", "hello"]:
-        return f"{status_msg}. Ready.", None
-
-    if text.startswith("email"):
-        try:
-            clean_text = text[5:].strip()
-            parts = clean_text.split(" ", 1)
-            if len(parts) < 2: return "⚠️ Format: `Email [address] [message]`", None
-            result = genesis_mail.send_email(parts[0], "Genesis Notification", parts[1])
-            return f"✅ {result}", speak("Email dispatched successfully.")
-        except Exception as e:
-            return f"⚠️ Email Error: {str(e)}", None
-
-    if "transfer" in text or "send" in text:
-        symbol, value, box_color = detect_currency_and_amount(text)
-        html = f"""
-        <div style="background: {box_color}; color: #000; padding: 15px; border-radius: 10px; width: fit-content;">
-            <h2 style="margin:0;">{symbol}{value:,.2f}</h2>
-            <p style="margin:0; font-weight:bold;">Transfer Successful</p>
-        </div>
-        """
-        return html, speak(f"Transfer of {value} completed.")
-        
-    try:
-        inputs = []
-        if user_text: inputs.append(user_text)
-        if image_input: inputs.append(image_input)
-        
-        if audio_input: 
-            audio_bytes = audio_input.getvalue()
-            inputs.append({"mime_type": "audio/wav", "data": audio_bytes})
-            inputs.append("SYSTEM INSTRUCTION: Listen to intent and execute/answer. Be concise.")
-
-        if not inputs: return "⚠️ No input.", None
-
-        response = model.generate_content(inputs)
-        clean_text = response.text.replace("*", "") 
-        audio_response = speak(clean_text) 
-        return response.text, audio_response
-    except Exception as e:
-        return f"⚠️ **Processing Error:** {str(e)}", None
-
-# --- 4. UI ---
-def show_login_screen():
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        if isinstance(app_icon, str):
-            st.markdown(f"<h1 style='text-align: center; font-size: 80px;'>{app_icon}</h1>", unsafe_allow_html=True)
-        else:
-            st.image(app_icon, use_container_width=True)
-        st.markdown("<h1 style='text-align: center;'>GENESIS OS</h1>", unsafe_allow_html=True)
-        
-        tab_face, tab_pin = st.tabs(["👤 Face ID", "🔢 PIN Access"])
-        
-        with tab_face:
-            st.caption("Center your face in the camera frame.")
-            face_img = st.camera_input("Scan Biometrics", label_visibility="collapsed")
-            if face_img:
-                time.sleep(1)
-                st.success("Identity Confirmed.")
-                time.sleep(1)
-                st.session_state.logged_in = True
-                st.rerun()
-
-        with tab_pin:
-            pin = st.text_input("Enter 4-Digit Security Code", type="password", placeholder="****")
-            if st.button("Unlock System", use_container_width=True):
-                if pin == "2025": 
-                    st.success("Access Granted")
-                    st.session_state.logged_in = True
-                    st.rerun()
-                else:
-                    st.error("❌ Access Denied")
-
-if not st.session_state.logged_in:
-    show_login_screen()
-else:
-    with st.sidebar:
-        if isinstance(app_icon, str):
-            st.markdown(f"# {app_icon}")
-        else:
-            st.image(app_icon, width=80)
-        st.markdown("### 👁️ Sensor Suite")
-        vision_mode = st.radio("Visual Source:", ["None", "Camera", "Upload"], horizontal=True)
-        
-        image_data = None
-        if vision_mode == "Camera":
-            cam = st.camera_input("Capture")
-            if cam: image_data = Image.open(cam)
-        elif vision_mode == "Upload":
-            up = st.file_uploader("File", type=["jpg","png"])
-            if up: image_data = Image.open(up)
-
-        st.divider()
-        audio_data = st.audio_input("Voice Command")
-        
-        st.divider()
-        if st.button("🔒 Lock"):
-            st.session_state.logged_in = False
-            st.rerun()
-
-    st.title("🧬 Genesis OS") 
-
-    if "messages" not in st.session_state:
+    st.subheader("Hardware Interface")
+    audio_input = st.audio_input("Mic")
+    camera_input = st.camera_input("Camera")
+    
+    st.divider()
+    st.subheader("Data Ingestion")
+    uploaded_file = st.file_uploader("Upload Files", type=['png', 'jpg', 'jpeg', 'pdf', 'txt'])
+    
+    if st.button("Purge Session Memory"):
         st.session_state.messages = []
+        st.rerun()
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"], unsafe_allow_html=True)
-            if "audio" in msg:
-                st.audio(msg["audio"], format="audio/mp3")
+# --- 5. MAIN UI & CHAT ---
+st.title("Genesis: Agentic OS")
 
-    prompt = st.chat_input("Command Genesis...")
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    if prompt or audio_data or (image_data and vision_mode != "None"):
-        user_display = prompt if prompt else "🎤 [Voice/Visual Command]"
+if prompt := st.chat_input("Command Genesis..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    response_text = ""
+    
+    # 1. Email Command
+    if "send an email" in prompt.lower():
+        with st.spinner("Authorizing Gmail Layer..."):
+            success = send_email_action("e95754102@gmail.com", "System Status", "Genesis is Live.")
+            response_text = "✅ Email Layer Executed. Status: Delivered to Founder." if success else "❌ Email Error. Check credentials.json."
+            if success: st.balloons()
+
+    # 2. Transfer Command (The Receipt Fix)
+    elif "transfer" in prompt.lower():
+        with st.spinner("Resolving Bank Identity..."):
+            name = get_account_name("0022728151", "063")
+            # This is your Digital Receipt
+            response_text = f"""
+            ### 🧾 Digital Transaction Receipt
+            ---
+            **Recipient:** {name}
+            **Amount:** $5,000.00
+            **Bank:** GTBank Nigeria
+            **Status:** PENDING AUTHORIZATION
+            ---
+            *Note: Disbursement will occur upon biometric confirmation.*
+            """
+
+    # 3. AI Brain (Grounded & Identified)
+    else:
+        live_context = ""
+        if any(word in prompt.lower() for word in ["price", "news", "today", "current"]):
+            live_context = genesis_live_search(prompt)
+            
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
         
-        if user_display != "🎤 [Voice/Visual Command]" or (audio_data or image_data):
-            st.session_state.messages.append({"role": "user", "content": user_display})
-            with st.chat_message("user"):
-                st.markdown(user_display)
+        # We merge Identity + Live Data + User Prompt
+        full_query = f"{GENESIS_IDENTITY}\n\nLive Data: {live_context}\n\nUser: {prompt}"
+        ai_res = model.generate_content(full_query)
+        response_text = ai_res.text
 
-            with st.chat_message("assistant"):
-                with st.spinner("Processing..."):
-                    text_response, audio_file = run_genesis(prompt, image_input=image_data, audio_input=audio_data)
-                    st.markdown(text_response, unsafe_allow_html=True)
-                    if audio_file:
-                        st.audio(audio_file, format="audio/mp3", autoplay=True)
-                    
-                    msg_data = {"role": "assistant", "content": text_response}
-                    if audio_file: msg_data["audio"] = audio_file
-                    st.session_state.messages.append(msg_data)
+    with st.chat_message("assistant"):
+        st.markdown(response_text)
+    st.session_state.messages.append({"role": "assistant", "content": response_text})

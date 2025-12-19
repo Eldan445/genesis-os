@@ -15,5 +15,8 @@ python-dotenv
 pysqlite3-binary
 google-generativeai==0.8.3
 Pillow
-edge-tts
+edge_tts
 asyncio
+
+
+#gemini-flash-latest
