@@ -132,7 +132,7 @@ if prompt := st.chat_input("Command Genesis..."):
             live_context = genesis_live_search(prompt)
             
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        model = genai.GenerativeModel('gemini-flash-latest')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         
         # We merge Identity + Live Data + User Prompt
         full_query = f"{GENESIS_IDENTITY}\n\nLive Data: {live_context}\n\nUser: {prompt}"
